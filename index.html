@@ -794,7 +794,7 @@ async function tabAdempimenti() {
   const pr = {};
   el.forEach(r => { const o = pr[r.procedura_id] ||= {procedura_id: r.procedura_id, protocollo: r.protocollo, deb: [], gestore: r.gestore, fase: r.fase};
     if (r.ruolo === 'principale') { o.protocollo = r.protocollo; o.deb.unshift(r.debitore); } else o.deb.push(r.debitore); });
-  S.procAde = Object.values(pr).map(o => ({...o, debitore: o.deb.join(' + ')})).sort((a, b) => a.protocollo.localeCompare(b.protocollo, 'it', {numeric: true}));
+  S.procAde = Object.values(pr).map(o => ({...o, debitore: o.deb.join(' + '), pec: (S.pecMap[o.procedura_id] || {}).pec, pec_username: (S.pecMap[o.procedura_id] || {}).pec_username})).sort((a, b) => a.protocollo.localeCompare(b.protocollo, 'it', {numeric: true}));
   S.fa ||= {v: 'griglia', q: '', r: '', s: '', a: ''};
   const resp = [...new Set(pa.map(x => x.responsabile).filter(Boolean))].sort();
   const f = S.fa;
@@ -819,7 +819,7 @@ function adeOk(x) {           // filtri responsabile / stato / adempimento su un
 }
 function disegnaAde() {
   const f = S.fa, q = f.q.trim().toLowerCase();
-  const pOk = p => !q || [p.protocollo, p.debitore, p.gestore].some(v => (v || '').toLowerCase().includes(q));
+  const pOk = p => !q || [p.protocollo, p.debitore, p.gestore, p.pec, p.pec_username].some(v => (v || '').toLowerCase().includes(q));
   const nomeA = id => (S.ade.find(a => a.id === id) || {}).nome || '';
   if (f.v === 'griglia') {
     const ades = f.a ? S.ade.filter(a => String(a.id) === String(f.a)) : S.ade;
@@ -831,15 +831,16 @@ function disegnaAde() {
       return `<span class="st ${x ? ADE_CLS[x.stato] : 'vuoto'}" title="${h(tit)}" onclick="event.stopPropagation();apriAde(${p.procedura_id},${a.id})">${x ? ADE_SIG[x.stato] : '+'}</span>`; };
     $('#lista').innerHTML = `<div class="conta">${righe.length} procedure condivise</div>` + tabella('ade', [
       {t: 'Protocollo', v: p => p.protocollo}, {t: 'Debitore', v: p => p.debitore}, {t: 'Gestore', v: p => p.gestore},
+      {t: 'Indirizzo PEC', v: p => p.pec}, {t: 'Utente PEC', v: p => p.pec_username},
       ...ades.map(a => ({t: a.codice, v: p => { const x = S.paMap[p.procedura_id + '_' + a.id]; return x ? STATI_ADE.indexOf(x.stato) : -1; }, f: p => cella(p, a)}))], righe);
-    document.querySelectorAll('#lista thead th').forEach((th, i) => { if (i >= 3) th.title = ades[i - 3].nome + (ades[i - 3].chi_di_norma ? ' (di norma: ' + ades[i - 3].chi_di_norma + ')' : ''); });
+    document.querySelectorAll('#lista thead th').forEach((th, i) => { if (i >= 5) th.title = ades[i - 5].nome + (ades[i - 5].chi_di_norma ? ' (di norma: ' + ades[i - 5].chi_di_norma + ')' : ''); });
   } else {
     const pm = {}; S.procAde.forEach(p => pm[p.procedura_id] = p);
     const righe = S.pa.filter(x => pm[x.procedura_id] && pOk(pm[x.procedura_id]) && adeOk(x) || (q && pm[x.procedura_id] && adeOk(x) && (x.note || '').toLowerCase().includes(q)))
       .map(x => ({...x, _p: pm[x.procedura_id], _ord: (S.ade.find(a => a.id === x.adempimento_id) || {}).ordine || 0}))
       .sort((a, b) => a._p.protocollo.localeCompare(b._p.protocollo, 'it', {numeric: true}) || a._ord - b._ord);
     $('#lista').innerHTML = `<div class="conta">${righe.length} compiti registrati</div>` + tabella('ade', [
-      {t: 'Protocollo', v: x => x._p.protocollo}, {t: 'Debitore', v: x => x._p.debitore}, {t: 'Adempimento', v: x => nomeA(x.adempimento_id)},
+      {t: 'Protocollo', v: x => x._p.protocollo}, {t: 'Debitore', v: x => x._p.debitore}, {t: 'Indirizzo PEC', v: x => x._p.pec}, {t: 'Utente PEC', v: x => x._p.pec_username}, {t: 'Adempimento', v: x => nomeA(x.adempimento_id)},
       {t: 'Responsabile', v: x => x.responsabile}, {t: 'Con', v: x => x.con},
       {t: 'Stato', v: x => STATI_ADE.indexOf(x.stato), f: x => `<span class="st ${ADE_CLS[x.stato]}">${ADE_SIG[x.stato]}</span> ${h(x.stato)}${x.avanzamento != null ? ' ' + x.avanzamento + '%' : ''}`},
       {t: 'Inizio', v: x => x.data_inizio, f: x => data(x.data_inizio)}, {t: 'Fine', v: x => x.data_fine, f: x => data(x.data_fine)},
