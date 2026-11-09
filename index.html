@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Database OCC</title>
+<!-- db-occ – app di consultazione e modifica, v3 (Claudia, 08/11/2026: dati omologa per il Ministero; IBAN esteri; estratto conto con saldo; colonne ridimensionabili; stampa/PDF). Apri il file nel browser. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
+@media (prefers-color-scheme:dark){:root{--th:#2a5f94;--bg:#14171c;--pane:#1c2027;--ink:#e6e8eb;--mute:#98a2b3;--line:#2e343e;--acc:#4fbf9f;--acc2:#1d3530;--warn:#f79009;--warnbg:#3a2a12;--err:#f97066;--errbg:#3b1d1a;--ok:#47cd89}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:10px 16px;background:var(--pane);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header h1{font-size:16px;margin:0;color:var(--acc)}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:none;border:0;padding:6px 10px;border-radius:6px;color:var(--mute);cursor:pointer;font:inherit}
+nav button.on{background:var(--acc2);color:var(--acc);font-weight:600}
+header .chi{margin-left:auto;color:var(--mute);font-size:12px}
+main{padding:16px;max-width:1400px;margin:0 auto}
+.filtri{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:10px}
+.filtri label{display:flex;flex-direction:column;font-size:12px;color:var(--mute);gap:2px}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--pane);border:1px solid var(--line);border-radius:6px;padding:5px 7px}
+textarea{width:100%;min-height:60px}
+button.b{font:inherit;border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:6px;padding:5px 12px;cursor:pointer}
+button.b2{font:inherit;border:1px solid var(--line);background:var(--pane);color:var(--ink);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+.tab{background:var(--pane);border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:calc(100vh - 190px)}
+table{border-collapse:collapse;width:100%}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:top}
+th{position:sticky;top:0;background:var(--th);font-size:12px;color:var(--thtx);font-weight:700;cursor:pointer;user-select:none;border-bottom:0}
+tbody tr.cl{cursor:pointer}
+th .rz{position:absolute;right:-3px;top:0;bottom:0;width:7px;cursor:col-resize;z-index:1}
+th .rz:hover,th .rz.on{background:var(--acc);opacity:.5}
+table.fissa{table-layout:fixed}
+table.fissa th,table.fissa td{overflow:hidden;text-overflow:ellipsis}
+table.fissa td.wrap{min-width:0}
+tbody tr.cl:hover{background:var(--acc2)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td.wrap{white-space:normal;min-width:240px}
+tfoot td{font-weight:600;position:sticky;bottom:0;background:var(--pane)}
+.conta{color:var(--mute);font-size:12px;margin:6px 2px}
+.tag{display:inline-block;padding:0 6px;border-radius:10px;font-size:12px;background:var(--acc2);color:var(--acc)}
+.tag.w{background:var(--warnbg);color:var(--warn)}
+.tag.e{background:var(--errbg);color:var(--err)}
+.sopra{background:var(--acc2)}
+#drawer{position:fixed;top:0;right:0;bottom:0;width:min(760px,100%);background:var(--bg);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);overflow:auto;transform:translateX(105%);transition:transform .2s;z-index:10}
+#drawer.on{transform:none}
+#drawer .top{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--pane);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+#drawer .top h2{margin:0;font-size:16px;flex:1}
+#drawer .corpo{padding:12px 16px}
+.box{background:var(--pane);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;overflow-x:auto}
+.box td input{min-width:0;width:100%}
+.box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute)}
+.griglia{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.griglia label{display:flex;flex-direction:column;font-size:12px;color:var(--mute);gap:2px}
+.griglia label.l2{grid-column:span 2}
+.griglia label.chk{flex-direction:row;align-items:center;gap:6px;color:var(--ink)}
+.azioni{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
+.nota{font-size:12px;color:var(--mute)}
+.avviso{padding:8px 10px;border-radius:6px;background:var(--warnbg);color:var(--warn);font-size:13px;margin:8px 0}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:6px;background:var(--ink);color:var(--bg);display:none;z-index:20;max-width:90%}
+#toast.e{background:var(--err);color:#fff}
+.login{max-width:380px;margin:12vh auto;background:var(--pane);border:1px solid var(--line);border-radius:10px;padding:24px}
+.login h1{font-size:18px;margin:0 0 4px;color:var(--acc)}
+.login label{display:flex;flex-direction:column;gap:3px;margin:12px 0;font-size:13px;color:var(--mute)}
+.login input{width:100%}
+.mod{outline:2px solid var(--warn)}
+.st{display:inline-block;min-width:28px;text-align:center;border-radius:5px;padding:1px 5px;cursor:pointer;font-weight:600;font-size:12px;border:1px solid var(--line);background:var(--pane);color:var(--mute)}
+.st.vuoto{opacity:.35}.st:hover{outline:2px solid var(--acc)}
+.st.s-dafare{background:var(--bg);color:var(--ink)}
+.st.s-incorso{background:var(--acc2);color:var(--acc);border-color:var(--acc)}
+.st.s-delega,.st.s-attesa{background:var(--warnbg);color:var(--warn);border-color:var(--warn)}
+.st.s-fatto{background:var(--ok);color:#fff;border-color:var(--ok)}
+.st.s-nonnec{background:var(--line);color:var(--mute)}
+.legenda{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin:4px 2px 8px}
+#stampa{display:none}
+@media print{
+  @page{size:A4 landscape;margin:11mm}
+  body{background:#fff;color:#000;font-size:9pt}
+  body>*:not(#stampa){display:none!important}
+  #stampa{display:block}
+  #stampa h1{font-size:13pt;margin:0 0 2px;color:#000}
+  #stampa .sotto{font-size:9pt;color:#333;margin-bottom:8px}
+  #stampa table{width:100%!important;border-collapse:collapse;table-layout:auto}
+  #stampa th,#stampa td{position:static;white-space:normal;border-bottom:1px solid #bbb;padding:3px 5px;color:#000;background:#fff;font-size:8.5pt}
+  #stampa th{background:#1f4e79;color:#fff;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #stampa tr{break-inside:avoid}
+  #stampa thead{display:table-header-group}
+  #stampa tfoot td{font-weight:700;border-top:1.5px solid #000}
+  #stampa .tag{background:none;color:#000;padding:0}
+  #stampa .riep{display:flex;gap:24px;margin:6px 0 8px;font-size:9pt}
+  #stampa .pie{margin-top:8px;font-size:8pt;color:#555}
+}
+@media (max-width:700px){main{padding:10px}.griglia label.l2{grid-column:span 1}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="drawer"><div class="top"><h2 id="dtit"></h2><button class="b2" onclick="chiudi()">Chiudi ✕</button></div><div class="corpo" id="dcorpo"></div></div>
+<div id="toast"></div>
+<div id="stampa"></div>
+<script>
+'use strict';
+const URL_DB = 'https://vnenmfmmvgkimnkvxpxy.supabase.co';
+const CHIAVE_PUBBLICA = 'sb_publishable_RRD3RBBWok5kyXVN42ngEg_icgbHjM9';   // chiave pubblica (publishable): fatta per stare nella pagina, da sola non apre i dati
+const FASI = ['contatto','preventivo','incarico','caricata','nominato','depositata','omologata','chiusa'];
+const TIPI = ['LP','PD','AD','IN','ND'];
+const STATI_BON = ['proposto','sospeso','fatto','annullato'];
+let sb = null, api = null, utente = null;
+const S = {gestori: [], codici: [], elenco: [], tab: 'procedure'};
+
+// ---------- utilità ----------
+const h = v => v == null ? '' : String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const euro = v => v == null || v === '' ? '' : Number(v).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const data = v => v ? v.slice(0, 10).split('-').reverse().join('/') : '';
+const oggi = () => new Date().toISOString().slice(0, 10);
+const somma = (a, f) => a.reduce((s, x) => s + (Number(f(x)) || 0), 0);
+const $ = s => document.querySelector(s);
+function toast(t, err) { const e = $('#toast'); e.textContent = t; e.className = err ? 'e' : ''; e.style.display = 'block'; clearTimeout(e._t); e._t = setTimeout(() => e.style.display = 'none', err ? 7000 : 3000); }
+const nomeG = id => { const g = S.gestori.find(x => x.id === id); return g ? g.cognome + ' ' + g.nome : ''; };
+const optG = (sel, vuoto = '—') => `<option value="">${vuoto}</option>` + S.gestori.map(g => `<option value="${g.id}" ${g.id == sel ? 'selected' : ''}>${h(g.cognome + ' ' + g.nome)}</option>`).join('');
+const opt = (arr, sel, vuoto) => (vuoto != null ? `<option value="">${vuoto}</option>` : '') + arr.map(a => { const [v, t] = Array.isArray(a) ? a : [a, a]; return `<option value="${h(v)}" ${String(v) === String(sel ?? '') ? 'selected' : ''}>${h(t)}</option>`; }).join('');
+function scaricaCSV(nome, righe) {
+  if (!righe.length) return toast('Niente da esportare');
+  const k = Object.keys(righe[0]);
+  const csv = [k.join(';')].concat(righe.map(r => k.map(c => { let v = r[c] ?? ''; if (typeof v === 'number') v = String(v).replace('.', ','); v = String(v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(';'))).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], {type: 'text/csv'})); a.download = nome; a.click();
+}
+
+// codice fiscale: formato, carattere di controllo, coerenza con cognome e nome (come controllo_cf.py)
+const CF_D = [1,0,5,7,9,13,15,17,19,21,2,4,18,20,11,3,6,8,12,14,16,10,22,25,24,23];
+function cfParte(s, nome) {
+  s = s.toUpperCase().normalize('NFD').replace(/[^A-Z]/g, '');
+  let c = [...s].filter(x => !'AEIOU'.includes(x)), v = [...s].filter(x => 'AEIOU'.includes(x));
+  if (nome && c.length >= 4) c = [c[0], c[2], c[3]];
+  return (c.concat(v, ['X', 'X', 'X'])).slice(0, 3).join('');
+}
+function cfEsito(cf, cog, nome) {
+  if (!cf) return null;
+  cf = cf.toUpperCase();
+  if (!/^[A-Z]{6}[0-9LMNPQRSTUV]{2}[A-EHLMPRST][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/.test(cf)) return 'formato non valido';
+  let s = 0;
+  for (let i = 0; i < 15; i++) { const ch = cf[i], n = /\d/.test(ch) ? +ch : ch.charCodeAt(0) - 65; s += i % 2 === 0 ? CF_D[n] : n; }
+  if (String.fromCharCode(65 + s % 26) !== cf[15]) return 'carattere di controllo errato';
+  if (cog && cfParte(cog) !== cf.slice(0, 3)) return 'cognome non coerente';
+  if (nome && cfParte(nome, true) !== cf.slice(3, 6)) return 'nome non coerente';
+  return null;
+}
+function ibanOk(i) {
+  i = i.replace(/\s/g, '').toUpperCase();
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(i)) return false;   // anche IBAN esteri (es. LT)
+  const s = (i.slice(4) + i.slice(0, 4)).replace(/[A-Z]/g, c => c.charCodeAt(0) - 55);
+  let r = 0; for (const d of s) r = (r * 10 + +d) % 97; return r === 1;
+}
+
+// ---------- accesso ai dati (Supabase) ----------
+function apiSupabase() {
+  const chk = ({data, error}) => { if (error) throw new Error(error.message + (error.details ? ' – ' + error.details : '')); return data; };
+  const filtra = (q, f) => { for (const [op, c, v] of f || []) q = q[op](c, v); return q; };
+  return {
+    async list(t, {select = '*', f, order} = {}) {
+      const out = [];
+      for (let da = 0; ; da += 1000) {            // Supabase restituisce al massimo 1000 righe per volta
+        let q = filtra(sb.from(t).select(select), f);
+        for (const [c, asc] of order || []) q = q.order(c, {ascending: asc !== false});
+        const rows = chk(await q.range(da, da + 999));
+        out.push(...rows); if (rows.length < 1000) return out;
+      }
+    },
+    async insert(t, row) { return chk(await sb.from(t).insert(row).select()); },
+    async update(t, match, patch) { let q = sb.from(t).update(patch); for (const k in match) q = q.eq(k, match[k]); const r = chk(await q.select()); if (!r.length) throw new Error('Nessuna riga modificata (permessi?)'); return r; },
+    async upsert(t, row, onConflict) { return chk(await sb.from(t).upsert(row, {onConflict}).select()); },
+    async rpc(fn, args) { return chk(await sb.rpc(fn, args)); },
+  };
+}
+
+// ---------- avvio e login ----------
+async function avvio() {
+  if (window.apiOverride) { api = window.apiOverride; utente = {email: 'prova'}; return entra(); }
+  let key = CHIAVE_PUBBLICA || null; if (!key) try { key = localStorage.getItem('dbocc_key'); } catch (e) {}
+  if (!key) return schermataChiave();
+  sb = supabase.createClient(URL_DB, key, {db: {schema: 'occ'}, auth: {persistSession: true}});
+  api = apiSupabase();
+  const {data: {session}} = await sb.auth.getSession();
+  if (session) { utente = session.user; return entra(); }
+  schermataLogin();
+}
+function schermataChiave() {
+  $('#app').innerHTML = `<div class="login"><h1>Database OCC</h1><div class="nota">Primo avvio su questo computer</div>
+  <label>Chiave pubblica del progetto (Supabase → Project Settings → API Keys → «Publishable key», inizia con sb_publishable_)<input id="k" autocomplete="off"></label>
+  <button class="b" onclick="salvaChiave()">Salva</button><p class="nota">La chiave pubblica da sola non apre i dati: serve anche il login.</p></div>`;
+}
+function salvaChiave() { const k = $('#k').value.trim(); if (!k) return; try { localStorage.setItem('dbocc_key', k); } catch (e) { return toast('Il browser non permette di salvare la chiave', true); } avvio(); }
+function schermataLogin(msg) {
+  $('#app').innerHTML = `<div class="login"><h1>Database OCC</h1><div class="nota">Procedure, Gestori, incassi e bonifici</div>
+  <form onsubmit="event.preventDefault();login()"><label>Email<input id="em" type="email" autocomplete="username" required></label>
+  <label>Password<input id="pw" type="password" autocomplete="current-password" required></label>
+  <button class="b" type="submit">Entra</button> ${msg ? `<p class="tag e">${h(msg)}</p>` : ''}</form>
+  ${CHIAVE_PUBBLICA ? '' : `<p class="nota"><a href="#" onclick="localStorage.removeItem('dbocc_key');avvio();return false">Cambia chiave pubblica</a></p>`}</div>`;
+}
+async function login() {
+  const {data, error} = await sb.auth.signInWithPassword({email: $('#em').value, password: $('#pw').value});
+  if (error) return schermataLogin('Accesso non riuscito: ' + error.message);
+  utente = data.user; entra();
+}
+async function esci() { if (sb) await sb.auth.signOut(); location.reload(); }
+
+async function entra() {
+  S.me = {ruolo: 'admin'};
+  try { const r = await api.list('utenti_app'); if (r && r[0]) S.me = r[0]; } catch (e) {}
+  if (S.me.cambio_password) return schermataPrimaPassword();
+  const vol = S.me.ruolo === 'volenteroso';
+  if (vol) S.tab = 'adempimenti';
+  const schede = vol ? [['adempimenti', 'Adempimenti delle procedure condivise']] : [['procedure','Procedure'],['adempimenti','Adempimenti'],['gestori','Gestori'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
+  $('#app').innerHTML = `<header><h1>Database OCC</h1><nav>${schede.map(([k,t]) => `<button data-t="${k}" onclick="vai('${k}')">${t}</button>`).join('')}</nav>
+  <span class="chi">${h(S.me.nome || utente.email)} · <a href="#" onclick="cambiaPassword();return false">cambia password</a> · <a href="#" onclick="esci();return false">esci</a></span></header><main id="main">Caricamento…</main>`;
+  try {
+    [S.gestori, S.codici] = await Promise.all([api.list('gestori', {order: [['cognome'], ['nome']]}), api.list('dgstat_codici', {order: [['ordine']]})]);
+    if (!S.gestori.length) { $('#main').innerHTML = '<div class="avviso">Nessun dato visibile: l\'utente non è ancora abilitato nella tabella occ.utenti_app.</div>'; return; }
+  } catch (e) { $('#main').innerHTML = `<div class="avviso">Errore di collegamento: ${h(e.message)}</div>`; return; }
+  vai(S.tab);
+}
+function vai(t) {
+  S.tab = t; chiudi();
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  ({adempimenti: tabAdempimenti, procedure: tabProcedure, gestori: tabGestori, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
+}
+function apri(tit, html) { $('#dtit').textContent = tit; $('#dcorpo').innerHTML = html; $('#drawer').classList.add('on'); $('#drawer').scrollTop = 0; }
+function chiudi() { $('#drawer').classList.remove('on'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') chiudi(); });
+
+// tabella generica con ordinamento per colonna
+function tabella(id, cols, righe, onclick, piede) {
+  const st = S['ord_' + id] || {};
+  if (st.c != null) { const c = cols[st.c]; righe = [...righe].sort((a, b) => { let x = c.v(a), y = c.v(b); x = x ?? ''; y = y ?? ''; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'it', {numeric: true})) * st.d; }); }
+  S['rows_' + id] = righe;
+  S['cols_' + id] = cols; S['piede_' + id] = piede;
+  const lg = larghezze(id, cols.length);
+  return `<div class="tab"><table data-id="${id}" ${lg ? `class="fissa" style="width:${lg.reduce((a, b) => a + b, 0)}px"` : ''}>${lg ? `<colgroup>${lg.map(w => `<col style="width:${w}px">`).join('')}</colgroup>` : ''}<thead><tr>${cols.map((c, i) => `<th class="${c.n ? 'n' : ''}" onclick="ordina('${id}',${i})">${h(c.t)}${st.c === i ? (st.d > 0 ? ' ▲' : ' ▼') : ''}<span class="rz" title="Trascina per allargare o restringere · doppio clic: larghezze automatiche" onmousedown="iniziaRz(event,${i})" onclick="event.stopPropagation()" ondblclick="event.stopPropagation();azzeraRz('${id}')"></span></th>`).join('')}</tr></thead>
+  <tbody>${righe.map((r, i) => `<tr class="${onclick ? 'cl' : ''} ${r._cls || ''}" ${onclick ? `onclick="${onclick}(S.rows_${id}[${i}])"` : ''}>${cols.map(c => `<td class="${c.n ? 'n' : ''} ${c.w ? 'wrap' : ''}">${c.f ? c.f(r) : h(c.v(r))}</td>`).join('')}</tr>`).join('')}</tbody>
+  ${piede ? `<tfoot><tr>${piede}</tr></tfoot>` : ''}</table></div>`;
+}
+// ---------- STAMPA / PDF (stampa ciò che l'elenco mostra con i filtri attuali; per il PDF scegliere «Salva come PDF») ----------
+function stampaHtml(titolo, sotto, corpo) {
+  $('#stampa').innerHTML = `<h1>OCC del Canavese – ${h(titolo)}</h1><div class="sotto">${sotto}</div>${corpo}<div class="pie">Stampato il ${new Date().toLocaleString('it-IT')} da ${h(utente && utente.email || '')} · Database OCC</div>`;
+  const vecchio = document.title; document.title = 'OCC_' + titolo.replace(/[^\wÀ-ÿ]+/g, '-') + '_' + oggi();
+  setTimeout(() => { window.print(); document.title = vecchio; }, 100);
+}
+function tabellaStampa(id, righe, piede) {
+  const cols = S['cols_' + id]; righe = righe || S['rows_' + id] || [];
+  return `<table><thead><tr>${cols.map(c => `<th class="${c.n ? 'n' : ''}">${h(c.t)}</th>`).join('')}</tr></thead><tbody>${righe.map(r => `<tr>${cols.map(c => `<td class="${c.n ? 'n' : ''}">${c.f ? c.f(r) : h(c.v(r))}</td>`).join('')}</tr>`).join('')}</tbody>${(piede ?? S['piede_' + id]) ? `<tfoot><tr>${piede ?? S['piede_' + id]}</tr></tfoot>` : ''}</table>`;
+}
+const periodo = (dal, al) => dal && al ? `dal ${data(dal)} al ${data(al)}` : dal ? `dal ${data(dal)}` : al ? `fino al ${data(al)}` : 'tutto il periodo';
+function filtriTesto(pairs) { return pairs.filter(([, v]) => v).map(([k, v]) => `${k}: <b>${h(v)}</b>`).join(' · ') || 'nessun filtro'; }
+function stampaVista(id) {
+  const n = (S['rows_' + id] || []).length;
+  if (!n) return toast('Niente da stampare con questi filtri', true);
+  if (id === 'proc') { const f = S.fp; return stampaHtml('Elenco procedure', `${n} debitori · ${periodo(f.dd, f.da)} (data domanda) · ` + filtriTesto([['cerca', f.q], ['anno', f.a], ['fase', f.f], ['tipo', f.t], ['Gestore', f.g === '__nessuno' ? 'senza Gestore' : f.g], ['DGSTAT 2026', f.d], ['solo fase da verificare', f.s ? 'sì' : '']]), tabellaStampa('proc')); }
+  if (id === 'gest') return stampaHtml('Gestori', `${n} Gestori · ` + filtriTesto([['cerca', S.gq], ['solo con procedure in carico', S.gc ? 'sì' : '']]), tabellaStampa('gest'));
+  if (id === 'inc') { const f = S.fi, r = S.rows_inc; return stampaHtml('Incassi', `${periodo(f.dal, f.al)} · ${n} movimenti · ` + filtriTesto([['cerca', f.q], ['destinazione', f.d], ['solo entrate', f.e ? 'sì' : ''], ['senza procedura', f.s ? 'sì' : '']]),
+      tabellaStampa('inc', null, `<td>Totale</td><td class="n">${euro(somma(r, i => i.importo))}</td><td colspan="4"></td>`)); }
+  if (id === 'ec') { const f = S.fec, r = [...S.rows_ec].sort((a, b) => a.data_contabile.localeCompare(b.data_contabile) || a.id - b.id);
+    const ini = Number(r[0].saldo) - Number(r[0].importo), fin = Number(r[r.length - 1].saldo), ent = somma(r.filter(x => x.importo > 0), x => x.importo), usc = somma(r.filter(x => x.importo < 0), x => x.importo);
+    const filtrato = f.q ? ' · <b>attenzione: elenco filtrato per «' + h(f.q) + '», il saldo progressivo resta quello del conto</b>' : '';
+    return stampaHtml('Estratto conto', `Conto Banca d'Alba dell'Associazione Modello Canavese · ${periodo(f.dal, f.al)} · ${n} movimenti${filtrato}`,
+      `<div class="riep"><span>Saldo iniziale: <b>€ ${euro(ini)}</b></span><span>Entrate: <b>€ ${euro(ent)}</b></span><span>Uscite: <b>€ ${euro(usc)}</b></span><span>Saldo finale: <b>€ ${euro(fin)}</b></span></div>` +
+      tabellaStampa('ec', r, `<td>Totale movimenti e saldo finale</td><td class="n">${euro(ent + usc)}</td><td class="n">${euro(fin)}</td><td colspan="3"></td>`)); }
+  if (id === 'dp') return stampaHtml('Compensi da pagare ai Gestori', `incassi fino al ${data(S.fdp.lim)} · soglia € ${euro(S.fdp.soglia)} · regola: importo / 1,22 × 70% / 1,04 (Finpiemonte senza IVA)`, tabellaStampa('dp'));
+  if (id === 'bon') { const f = S.fbon || {}; return stampaHtml('Bonifici ai Gestori', `${periodo(f.dal, f.al)} · ${n} bonifici · ` + filtriTesto([['cerca', S.bq], ['stato', S.bs]]),
+      tabellaStampa('bon', null, `<td colspan="3">Totale netto</td><td class="n">${euro(somma(S.rows_bon, b => b.netto))}</td><td colspan="3"></td>`)); }
+  if (id === 'ade') { const f = S.fa; return stampaHtml('Adempimenti delle procedure condivise', `${n} righe · vista ${f.v === 'griglia' ? 'a griglia' : 'a elenco'} · ` + filtriTesto([['cerca', f.q], ['responsabile', f.r], ['stato', f.s], ['adempimento', f.a]]), tabellaStampa('ade')); }
+  if (id === 'reg') return stampaHtml('Registro modifiche', `${n} modifiche`, tabellaStampa('reg'));
+}
+const btnStampa = id => `<button class="b2" onclick="stampaVista('${id}')" title="Stampa l'elenco con i filtri attuali; per il PDF scegli «Salva come PDF» come stampante">Stampa / PDF</button>`;
+
+// larghezza delle colonne: trascinando il bordo destro dell'intestazione; ricordata per ogni elenco in questo browser
+function larghezze(id, n) { try { const v = JSON.parse(localStorage.getItem('dbocc_larg_' + id) || 'null'); return Array.isArray(v) && v.length === n ? v : null; } catch (e) { return null; } }
+function iniziaRz(e, i) {
+  e.preventDefault(); e.stopPropagation();
+  const th = e.target.parentElement, table = th.closest('table'), id = table.dataset.id, handle = e.target;
+  if (!table.classList.contains('fissa')) {           // prima volta: fissa le larghezze attuali di tutte le colonne
+    const w = [...table.querySelectorAll('thead th')].map(x => Math.round(x.getBoundingClientRect().width));
+    table.insertAdjacentHTML('afterbegin', `<colgroup>${w.map(x => `<col style="width:${x}px">`).join('')}</colgroup>`);
+    table.classList.add('fissa'); table.style.width = w.reduce((a, b) => a + b, 0) + 'px';
+  }
+  const cols = table.querySelectorAll('colgroup col'), x0 = e.clientX, w0 = parseFloat(cols[i].style.width);
+  handle.classList.add('on'); document.body.style.cursor = 'col-resize';
+  const muovi = ev => { cols[i].style.width = Math.max(40, w0 + ev.clientX - x0) + 'px'; table.style.width = [...cols].reduce((a, c) => a + parseFloat(c.style.width), 0) + 'px'; };
+  const fine = () => { document.removeEventListener('mousemove', muovi); document.removeEventListener('mouseup', fine); handle.classList.remove('on'); document.body.style.cursor = '';
+    try { localStorage.setItem('dbocc_larg_' + id, JSON.stringify([...cols].map(c => Math.round(parseFloat(c.style.width))))); } catch (err) {} };
+  document.addEventListener('mousemove', muovi); document.addEventListener('mouseup', fine);
+}
+function azzeraRz(id) { try { localStorage.removeItem('dbocc_larg_' + id); } catch (e) {} if (S['ridisegna_' + id]) S['ridisegna_' + id](); }
+function ordina(id, i) { const st = S['ord_' + id] || {}; S['ord_' + id] = {c: i, d: st.c === i ? -st.d : 1}; S['ridisegna_' + id](); }
+
+// raccoglie i campi di un form: data-c = colonna, data-tipo = num/bool/int
+function leggi(sel) {
+  const o = {};
+  document.querySelectorAll(sel + ' [data-c]').forEach(e => {
+    let v = e.type === 'checkbox' ? e.checked : e.value.trim();
+    if (e.type !== 'checkbox') { if (v === '') v = null; else if (e.dataset.tipo === 'num') v = Number(v.replace(/\./g, '').replace(',', '.')); else if (e.dataset.tipo === 'int') v = parseInt(v, 10); }
+    o[e.dataset.c] = v;
+  });
+  return o;
+}
+function diff(orig, nuovo) { const p = {}; for (const k in nuovo) if ((orig[k] ?? null) != (nuovo[k] ?? null) || (typeof nuovo[k] === 'number' && Number(orig[k]) !== nuovo[k])) p[k] = nuovo[k]; return p; }
+const campo = (c, t, v, tipo = 'text', extra = '') => `<label class="${extra}">${h(t)}<input data-c="${c}" ${tipo === 'num' ? 'data-tipo="num" inputmode="decimal"' : tipo === 'int' ? 'data-tipo="int" inputmode="numeric"' : `type="${tipo}"`} value="${h(tipo === 'num' && v != null ? String(v).replace('.', ',') : v)}"></label>`;
+const spunta = (c, t, v) => `<label class="chk"><input type="checkbox" data-c="${c}" ${v ? 'checked' : ''}> ${h(t)}</label>`;
+const scelta = (c, t, arr, v, vuoto) => `<label>${h(t)}<select data-c="${c}" ${typeof arr === 'string' ? '' : ''}>${typeof arr === 'string' ? arr : opt(arr, v, vuoto)}</select></label>`;
+const area = (c, t, v) => `<label class="l2" style="grid-column:1/-1">${h(t)}<textarea data-c="${c}">${h(v)}</textarea></label>`;
+async function salva(fn, btn) { if (btn) btn.disabled = true; try { await fn(); } catch (e) { toast(e.message, true); } finally { if (btn) btn.disabled = false; } }
+
+// ---------- PROCEDURE ----------
+async function tabProcedure() {
+  $('#main').innerHTML = 'Caricamento…';
+  S.elenco = await api.list('v_elenco_procedure');
+  const anni = [...new Set(S.elenco.map(r => r.protocollo.slice(0, 4)))].sort().reverse();
+  const f = S.fp || (S.fp = {});
+  $('#main').innerHTML = `<div class="filtri">
+   <label>Cerca<input id="fq" placeholder="protocollo, debitore, Gestore, advisor" value="${h(f.q)}" size="30"></label>
+   <label>Anno<select id="fa">${opt(anni, f.a, 'tutti')}</select></label>
+   <label>Fase<select id="ff">${opt(FASI, f.f, 'tutte')}</select></label>
+   <label>Tipo<select id="ft">${opt(TIPI, f.t, 'tutti')}</select></label>
+   <label>Gestore<select id="fg"><option value="">tutti</option>${S.gestori.map(g => `<option ${f.g === g.cognome + ' ' + g.nome ? 'selected' : ''}>${h(g.cognome + ' ' + g.nome)}</option>`).join('')}<option value="__nessuno" ${f.g === '__nessuno' ? 'selected' : ''}>senza Gestore</option></select></label>
+   <label>DGSTAT 2026<select id="fd">${opt(S.codici.map(c => [c.codice, c.descrizione]), f.d, 'tutti')}</select></label>
+   <label>Domanda dal<input type="date" id="fdd" value="${h(f.dd)}"></label><label>al<input type="date" id="fda" value="${h(f.da)}"></label>
+   <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="fs" ${f.s ? 'checked' : ''}> fase da verificare</label>
+   <button class="b2" onclick="esportaProc()">Esporta CSV</button>${btnStampa('proc')}<button class="b" onclick="nuovaProcedura()">+ Nuova procedura</button></div><div id="lista"></div>`;
+  ['fq', 'fa', 'ff', 'ft', 'fg', 'fd', 'fs', 'fdd', 'fda'].forEach(id => $('#' + id).addEventListener(id === 'fq' ? 'input' : 'change', disegnaProc));
+  disegnaProc();
+}
+function filtraProc() {
+  const f = S.fp = {q: $('#fq').value.trim().toLowerCase(), a: $('#fa').value, f: $('#ff').value, t: $('#ft').value, g: $('#fg').value, d: $('#fd').value, s: $('#fs').checked, dd: $('#fdd').value, da: $('#fda').value};
+  return S.elenco.filter(r => (!f.q || [r.protocollo, r.debitore, r.gestore, r.advisor].join(' ').toLowerCase().includes(f.q))
+    && (!f.a || r.protocollo.startsWith(f.a)) && (!f.f || r.fase === f.f) && (!f.t || r.tipo === f.t) && (!f.d || r.dgstat_2026 === f.d)
+    && (!f.g || (f.g === '__nessuno' ? !r.gestore : (r.gestore || '').includes(f.g))) && (!f.s || r.fase_stimata)
+    && (!f.dd || (r.data_domanda && r.data_domanda >= f.dd)) && (!f.da || (r.data_domanda && r.data_domanda <= f.da)));
+}
+S.ridisegna_proc = () => disegnaProc();
+function disegnaProc() {
+  const righe = filtraProc();
+  $('#lista').innerHTML = `<div class="conta">${righe.length} debitori su ${S.elenco.length}</div>` + tabella('proc', [
+    {t: 'Protocollo', v: r => r.protocollo}, {t: 'Debitore', v: r => r.debitore, f: r => h(r.debitore) + (r.ruolo === 'familiare' ? ' <span class="tag">DF</span>' : '')},
+    {t: 'Tipo', v: r => r.tipo}, {t: 'Fase', v: r => FASI.indexOf(r.fase), f: r => h(r.fase) + (r.fase_stimata ? ' <span class="tag w" title="ricavata in automatico, da verificare">?</span>' : '')},
+    {t: 'Gestore', v: r => r.gestore, f: r => h(r.gestore) + (r.condivisa ? ' <span class="tag" title="Gruppo dei Volenterosi">S</span>' : '')},
+    {t: 'Domanda', v: r => r.data_domanda, f: r => data(r.data_domanda)}, {t: 'Preventivo', n: 1, v: r => Number(r.preventivo) || 0, f: r => euro(r.preventivo)},
+    {t: 'Advisor', v: r => r.advisor}, {t: 'DGSTAT 25', v: r => r.dgstat_2025}, {t: 'DGSTAT 26', v: r => r.dgstat_2026}], righe, 'apriProcRiga');
+}
+function esportaProc() { scaricaCSV('procedure_' + oggi() + '.csv', filtraProc().map(({procedura_id, debitore_id, ...r}) => r)); }
+function apriProcRiga(r) { apriProcedura(r.procedura_id); }
+
+async function apriProcedura(id) {
+  apri('Procedura…', 'Caricamento…');
+  const [[p], deb, nom, fasi, inc] = await Promise.all([
+    api.list('procedure', {f: [['eq', 'id', id]]}), api.list('debitori', {f: [['eq', 'procedura_id', id]], order: [['numero']]}),
+    api.list('procedure_gestori', {f: [['eq', 'procedura_id', id]], order: [['dal']]}), api.list('procedure_fasi', {f: [['eq', 'procedura_id', id]], order: [['data']]}),
+    api.list('incassi', {f: [['eq', 'procedura_id', id]], order: [['data_contabile']]})]);
+  const dg = deb.length ? await api.list('debitori_dgstat', {f: [['in', 'debitore_id', deb.map(d => d.id)]], order: [['anno']]}) : [];
+  S.p = {p, deb, nom, fasi, inc, dg};
+  const princ = deb.find(d => d.ruolo === 'principale') || deb[0] || {};
+  const tit = `${princ.anno}/${String(princ.numero).padStart(3, '0')} ${princ.cognome || ''} ${princ.nome || ''}`;
+  apri(tit, `
+  <div class="box" id="fproc"><h3>Procedura</h3><div class="griglia">
+    ${scelta('tipo', 'Tipo', TIPI, p.tipo)}
+    ${scelta('fase', 'Fase', FASI, p.fase)}
+    <label>Data della fase (se la cambi)<input type="date" id="datafase" value="${oggi()}"></label>
+    ${spunta('fase_stimata', 'fase da verificare', p.fase_stimata)}
+    ${campo('data_domanda', 'Data domanda', p.data_domanda, 'date')}
+    ${campo('preventivo', 'Preventivo (IVA escl.)', p.preventivo, 'num')}
+    ${campo('attivo', 'Attivo', p.attivo, 'num')}${campo('passivo', 'Passivo', p.passivo, 'num')}
+    ${campo('advisor', 'Advisor', p.advisor, 'text', 'l2')}
+    ${campo('pec', 'PEC della procedura (solo indirizzo, mai la password)', p.pec, 'text', 'l2')}
+    ${spunta('condivisa', 'condivisa (Volenterosi)', p.condivisa)}
+    ${campo('lexdebita_id', 'Id Lexdebita', p.lexdebita_id, 'int')}${campo('protocollo_lexdebita', 'Protocollo Lexdebita', p.protocollo_lexdebita)}
+    ${campo('licenze_lexdebita', 'Licenze attivate il', p.licenze_lexdebita, 'date')}${campo('data_sentenza', 'Data sentenza/omologa', p.data_sentenza, 'date')}
+    ${campo('cartella', 'Cartella su raid6', p.cartella, 'text', 'l2')}
+    <div style="grid-column:1/-1;margin-top:6px;font-size:12px;font-weight:600;color:var(--mute)">DATI PER IL MINISTERO – da compilare all'omologa / sentenza di ammissione (dettaglio procedimenti omologati)</div>
+    ${campo('debiti_iniziali', 'Debiti iniziali (A)', p.debiti_iniziali, 'num')}${campo('debiti_iniziali_chirografi', 'di cui chirografari (B)', p.debiti_iniziali_chirografi, 'num')}
+    ${campo('debiti_rimborsabili', 'Debiti rimborsabili, senza spese (C)', p.debiti_rimborsabili, 'num')}${campo('debiti_rimborsabili_chirog', 'di cui chirografari (D)', p.debiti_rimborsabili_chirog, 'num')}
+    ${campo('spese_procedura', 'Spese di procedura (F)', p.spese_procedura, 'num')}
+    <label>Durata (E), giorni<input disabled value="${p.data_sentenza && p.data_domanda ? Math.round((new Date(p.data_sentenza) - new Date(p.data_domanda)) / 864e5) : 'serve data domanda e sentenza'}"></label>
+    ${area('note', 'Note', p.note)}
+  </div><div class="azioni"><button class="b" onclick="salva(salvaProc,this)">Salva procedura</button>
+  ${p.lexdebita_stato ? `<span class="nota">Lexdebita: ${h(p.lexdebita_tipo || '')} · ${h(p.lexdebita_stato)} · DGSTAT ${h(p.lexdebita_dgstat || '')} (letto il ${data(p.lexdebita_letto_il)})</span>` : ''}</div></div>
+
+  <div class="box"><h3>Debitori</h3>${deb.map(d => `<div id="deb${d.id}" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><div class="griglia">
+    ${campo('cognome', 'Cognome', d.cognome)}${campo('nome', 'Nome', d.nome)}${campo('codice_fiscale', 'Codice fiscale', d.codice_fiscale)}
+    ${scelta('ruolo', 'Ruolo', [['principale', 'principale (F)'], ['familiare', 'familiare (DF)']], d.ruolo)}
+    ${campo('numero', 'Protocollo n.', d.numero, 'int')}${campo('residenza', 'Residenza', d.residenza, 'text', 'l2')}${campo('email', 'Email', d.email)}${campo('telefono', 'Telefono', d.telefono)}
+  </div><div class="azioni"><button class="b2" onclick="salva(()=>salvaDeb(${d.id}),this)">Salva debitore</button>
+  <span class="nota">${d.nominativo_foglio ? 'Nel foglio: «' + h(d.nominativo_foglio) + '»' + (d.riga_foglio ? ', riga ' + d.riga_foglio : '') : ''} ${d.codice_fiscale && cfEsito(d.codice_fiscale, d.cognome, d.nome) ? '<span class="tag e">CF: ' + cfEsito(d.codice_fiscale, d.cognome, d.nome) + '</span>' : ''}</span></div></div>`).join('')}
+  <div class="azioni"><button class="b2" onclick="nuovoFamiliare()">+ Aggiungi familiare</button></div></div>
+
+  <div class="box"><h3>Gestori nominati</h3>
+  <table><thead><tr><th>Gestore</th><th>Ruolo</th><th class="n">Quota %</th><th>Dal</th><th>Al</th><th>Note</th><th></th></tr></thead><tbody>
+  ${nom.map(n => `<tr id="nom${n.id}"><td>${h(nomeG(n.gestore_id))}</td><td>${h(n.ruolo)}</td><td><input data-c="quota" data-tipo="num" size="4" value="${h(String(n.quota).replace('.', ','))}"></td>
+   <td><input type="date" data-c="dal" value="${h(n.dal)}"></td><td><input type="date" data-c="al" value="${h(n.al)}"></td><td><input data-c="note" value="${h(n.note)}"></td>
+   <td><button class="b2" onclick="salva(()=>salvaNomina(${n.id}),this)">Salva</button></td></tr>`).join('')}</tbody></table>
+  <div class="griglia" id="nuovanom" style="margin-top:10px">${scelta('gestore_id', 'Nuovo Gestore', optG(null))}${scelta('ruolo', 'Ruolo', ['gestore', 'ausiliario'], 'gestore')}
+   ${campo('quota', 'Quota %', 100, 'num')}${campo('dal', 'Dal', oggi(), 'date')}</div>
+  <div class="azioni"><button class="b2" onclick="salva(nuovaNomina,this)">+ Aggiungi nomina</button>
+  <span class="nota">Subentro: metti la data «Al» al Gestore uscente e aggiungi il nuovo con «Dal». Gli incassi vanno a chi era in carica alla data dell'incasso.</span></div></div>
+
+  <div class="box"><h3>Stato ministeriale (DGSTAT)</h3>
+  <table><thead><tr><th>Debitore</th><th>Anno</th><th>Codice</th><th>Definitivo</th><th>Nota</th></tr></thead><tbody>
+  ${dg.map(x => `<tr><td>${h((deb.find(d => d.id === x.debitore_id) || {}).cognome)}</td><td>${x.anno}</td><td>${h(x.codice)} <span class="nota">${h((S.codici.find(c => c.codice === x.codice) || {}).descrizione)}</span></td><td>${x.definitivo ? 'sì' : 'no'}</td><td>${h(x.nota)}</td></tr>`).join('')}</tbody></table>
+  <div class="griglia" id="nuovodg" style="margin-top:10px">${scelta('debitore_id', 'Debitore', deb.map(d => [d.id, d.cognome + ' ' + d.nome]), princ.id)}
+   ${campo('anno', 'Anno', new Date().getFullYear(), 'int')}${scelta('codice', 'Codice', S.codici.map(c => [c.codice, c.descrizione]), '')}
+   ${spunta('definitivo', 'definitivo', false)}${campo('nota', 'Nota', '', 'text', 'l2')}</div>
+  <div class="azioni"><button class="b2" onclick="salva(salvaDgstat,this)">Salva stato (sostituisce quello dello stesso anno)</button></div></div>
+
+  <div class="box"><h3>Storia delle fasi</h3>${fasi.length ? fasi.map(x => `${data(x.data)} – <b>${h(x.fase)}</b> ${h(x.nota || '')}`).join('<br>') : '<span class="nota">Nessuna fase registrata</span>'}</div>
+
+  <div class="box"><h3>Incassi (${inc.length})</h3>${inc.length ? `<table><thead><tr><th>Data</th><th class="n">Importo</th><th>Destinazione</th><th>Descrizione</th></tr></thead><tbody>
+  ${inc.map(i => `<tr class="cl" onclick="apriIncasso(${i.id})"><td>${data(i.data_contabile)}</td><td class="n">${euro(i.importo)}</td><td>${h(i.destinazione)}${i.gestore_forzato_id ? ' → ' + h(nomeG(i.gestore_forzato_id)) : ''}</td><td class="wrap">${h(i.descrizione)}</td></tr>`).join('')}</tbody>
+  <tfoot><tr><td>Totale</td><td class="n">${euro(somma(inc, i => i.importo))}</td><td colspan="2"></td></tr></tfoot></table>` : '<span class="nota">Nessuno</span>'}</div>`);
+}
+async function salvaProc() {
+  const {p} = S.p, n = leggi('#fproc'), patch = diff(p, n);
+  if (!Object.keys(patch).length) return toast('Nessuna modifica');
+  await api.update('procedure', {id: p.id}, patch);
+  if (patch.fase) await api.upsert('procedure_fasi', {procedura_id: p.id, fase: patch.fase, data: $('#datafase').value || oggi(), nota: 'dall\'app'}, 'procedura_id,fase');
+  toast('Procedura salvata'); aggiornaElenco(); apriProcedura(p.id);
+}
+async function salvaDeb(id) {
+  const d = S.p.deb.find(x => x.id === id), n = leggi('#deb' + id);
+  if (n.codice_fiscale) { n.codice_fiscale = n.codice_fiscale.toUpperCase(); const e = cfEsito(n.codice_fiscale, n.cognome, n.nome); if (e && !confirm('Codice fiscale: ' + e + '. Salvare lo stesso?')) return; }
+  if (!n.cognome) return toast('Il cognome è obbligatorio', true);
+  if (n.nome == null) n.nome = '';
+  const patch = diff(d, n); if (!Object.keys(patch).length) return toast('Nessuna modifica');
+  await api.update('debitori', {id}, patch); toast('Debitore salvato'); aggiornaElenco(); apriProcedura(S.p.p.id);
+}
+async function salvaNomina(id) {
+  const n = S.p.nom.find(x => x.id === id), patch = diff(n, leggi('#nom' + id));
+  if (!Object.keys(patch).length) return toast('Nessuna modifica');
+  await api.update('procedure_gestori', {id}, patch); toast('Nomina salvata'); aggiornaElenco(); apriProcedura(S.p.p.id);
+}
+async function nuovaNomina() {
+  const n = leggi('#nuovanom'); if (!n.gestore_id) return toast('Scegli il Gestore', true);
+  n.gestore_id = Number(n.gestore_id); n.procedura_id = S.p.p.id;
+  await api.insert('procedure_gestori', n); toast('Nomina aggiunta'); aggiornaElenco(); apriProcedura(S.p.p.id);
+}
+async function salvaDgstat() {
+  const n = leggi('#nuovodg'); if (!n.codice) return toast('Scegli il codice', true);
+  n.debitore_id = Number(n.debitore_id); n.aggiornato_il = oggi();
+  const c = S.codici.find(x => x.codice === n.codice); if (c && c.tipologia_min) n.tipologia_min = c.tipologia_min;
+  await api.upsert('debitori_dgstat', n, 'debitore_id,anno'); toast('Stato DGSTAT salvato'); aggiornaElenco(); apriProcedura(S.p.p.id);
+}
+async function nuovoFamiliare() {
+  const princ = S.p.deb[0];
+  const cog = prompt('Cognome del familiare (MAIUSCOLO)'); if (!cog) return;
+  const nome = prompt('Nome') || '';
+  const num = parseInt(prompt('Numero di protocollo del familiare nel foglio (anno ' + princ.anno + ')'), 10); if (!num) return;
+  await salva(async () => { await api.insert('debitori', {procedura_id: S.p.p.id, anno: princ.anno, numero: num, cognome: cog.toUpperCase(), nome, ruolo: 'familiare'}); toast('Familiare aggiunto'); aggiornaElenco(); apriProcedura(S.p.p.id); });
+}
+async function aggiornaElenco() { S.elenco = await api.list('v_elenco_procedure'); if (S.tab === 'procedure' && $('#lista')) disegnaProc(); }
+function nuovaProcedura() {
+  const anno = new Date().getFullYear(), ult = Math.max(0, ...S.elenco.filter(r => r.protocollo.startsWith(anno + '/')).map(r => parseInt(r.protocollo.slice(5), 10)));
+  apri('Nuova procedura', `<div class="box" id="fnuova"><div class="griglia">
+   ${campo('anno', 'Anno', anno, 'int')}${campo('numero', 'Protocollo n.', ult + 1, 'int')}${campo('cognome', 'Cognome', '')}${campo('nome', 'Nome', '')}
+   ${campo('codice_fiscale', 'Codice fiscale', '')}${scelta('tipo', 'Tipo', TIPI, 'ND')}${scelta('fase', 'Fase', FASI, 'contatto')}
+   ${campo('data_domanda', 'Data domanda', '', 'date')}${campo('preventivo', 'Preventivo', '', 'num')}${campo('advisor', 'Advisor', '', 'text', 'l2')}
+   ${scelta('gestore_id', 'Gestore', optG(null, 'non ancora'))}</div>
+   <div class="azioni"><button class="b" onclick="salva(creaProcedura,this)">Crea</button><span class="nota">Ultimo protocollo ${anno}: ${ult}</span></div></div>`);
+}
+async function creaProcedura() {
+  const n = leggi('#fnuova');
+  if (!n.anno || !n.numero || !n.cognome) return toast('Anno, numero e cognome sono obbligatori', true);
+  if (S.elenco.some(r => r.protocollo === n.anno + '/' + String(n.numero).padStart(3, '0'))) return toast('Protocollo già usato', true);
+  if (n.codice_fiscale) { n.codice_fiscale = n.codice_fiscale.toUpperCase(); const e = cfEsito(n.codice_fiscale, n.cognome, n.nome); if (e && !confirm('Codice fiscale: ' + e + '. Salvare lo stesso?')) return; }
+  const [p] = await api.insert('procedure', {tipo: n.tipo, fase: n.fase, data_domanda: n.data_domanda, preventivo: n.preventivo, advisor: n.advisor});
+  await api.insert('debitori', {procedura_id: p.id, anno: n.anno, numero: n.numero, cognome: n.cognome.toUpperCase(), nome: n.nome || '', codice_fiscale: n.codice_fiscale, ruolo: 'principale'});
+  await api.upsert('procedure_fasi', {procedura_id: p.id, fase: n.fase, data: oggi(), nota: 'creata dall\'app'}, 'procedura_id,fase');
+  if (n.gestore_id) await api.insert('procedure_gestori', {procedura_id: p.id, gestore_id: Number(n.gestore_id), ruolo: 'gestore', quota: 100, dal: oggi()});
+  toast('Procedura creata'); await aggiornaElenco(); apriProcedura(p.id);
+}
+
+// ---------- GESTORI ----------
+async function tabGestori() {
+  $('#main').innerHTML = 'Caricamento…';
+  const [nom, iban] = await Promise.all([api.list('procedure_gestori', {select: 'gestore_id,al,ruolo'}), api.list('gestori_iban', {select: 'gestore_id,attivo'})]);
+  S.gestori = await api.list('gestori', {order: [['cognome'], ['nome']]});
+  S.gestori.forEach(g => { g._proc = nom.filter(n => n.gestore_id === g.id && !n.al && n.ruolo === 'gestore').length; g._iban = iban.filter(i => i.gestore_id === g.id && i.attivo).length; });
+  $('#main').innerHTML = `<div class="filtri"><label>Cerca<input id="gq" value="${h(S.gq)}" size="30"></label>
+   <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="gc" ${S.gc ? 'checked' : ''}> solo con procedure in carico</label>
+   <button class="b2" onclick="scaricaCSV('gestori_'+oggi()+'.csv',S.rows_gest.map(({_proc,_iban,_cls,...g})=>g))">Esporta CSV</button>${btnStampa('gest')}
+   <button class="b" onclick="nuovoGestore()">+ Nuovo Gestore</button></div><div id="lista"></div>`;
+  $('#gq').addEventListener('input', disegnaGest); $('#gc').addEventListener('change', disegnaGest);
+  disegnaGest();
+}
+S.ridisegna_gest = () => disegnaGest();
+function disegnaGest() {
+  S.gq = $('#gq').value.trim().toLowerCase(); S.gc = $('#gc').checked;
+  const r = S.gestori.filter(g => (!S.gq || [g.cognome, g.nome, g.email, g.pec].join(' ').toLowerCase().includes(S.gq)) && (!S.gc || g._proc));
+  $('#lista').innerHTML = `<div class="conta">${r.length} Gestori</div>` + tabella('gest', [
+    {t: 'Cognome e nome', v: g => g.cognome + ' ' + g.nome, f: g => h(g.cognome + ' ' + g.nome) + (g.volenteroso ? ' <span class="tag">Volenteroso</span>' : '')},
+    {t: 'Titolo', v: g => g.titolo}, {t: 'Email', v: g => g.email}, {t: 'Telefono', v: g => g.telefono}, {t: 'Regime', v: g => g.regime_fiscale},
+    {t: 'Status', v: g => g.status}, {t: 'In carico', n: 1, v: g => g._proc}, {t: 'IBAN', v: g => g._iban, f: g => g._iban ? '✓' : '<span class="tag w">manca</span>'},
+    {t: 'CF', v: g => g.codice_fiscale ? 1 : 0, f: g => g.codice_fiscale ? '✓' : '<span class="tag w">manca</span>'}], r, 'apriGestore');
+}
+async function apriGestore(g) {
+  if (typeof g === 'number') g = S.gestori.find(x => x.id === g);
+  apri(g.cognome + ' ' + g.nome, 'Caricamento…');
+  const [iban, nom, bon] = await Promise.all([api.list('gestori_iban', {f: [['eq', 'gestore_id', g.id]], order: [['id']]}),
+    api.list('procedure_gestori', {f: [['eq', 'gestore_id', g.id]], order: [['dal', false]]}), api.list('v_bonifici', {f: [['eq', 'gestore', g.cognome + ' ' + g.nome]]})]);
+  S.g = {g, iban};
+  if (!S.elenco.length) S.elenco = await api.list('v_elenco_procedure');
+  const princ = id => S.elenco.find(r => r.procedura_id === id && r.ruolo === 'principale') || S.elenco.find(r => r.procedura_id === id) || {};
+  apri(g.cognome + ' ' + g.nome, `<div class="box" id="fgest"><h3>Anagrafica</h3><div class="griglia">
+   ${campo('cognome', 'Cognome', g.cognome)}${campo('nome', 'Nome', g.nome)}${campo('titolo', 'Titolo', g.titolo)}${campo('codice_fiscale', 'Codice fiscale', g.codice_fiscale)}
+   ${campo('email', 'Email', g.email, 'text', 'l2')}${campo('pec', 'PEC', g.pec, 'text', 'l2')}${campo('telefono', 'Telefono', g.telefono)}${campo('status', 'Status', g.status)}
+   ${scelta('regime_fiscale', 'Regime fiscale', ['ordinario', 'forfettario'], g.regime_fiscale, '—')}${spunta('volenteroso', 'Gruppo dei Volenterosi', g.volenteroso)}
+   ${area('note', 'Note', g.note)}</div><div class="azioni"><button class="b" onclick="salva(salvaGestore,this)">Salva</button>
+   ${g.codice_fiscale && cfEsito(g.codice_fiscale, g.cognome, g.nome) ? '<span class="tag e">CF: ' + cfEsito(g.codice_fiscale, g.cognome, g.nome) + '</span>' : ''}</div></div>
+  <div class="box"><h3>IBAN</h3><table><thead><tr><th>IBAN</th><th>Intestatario</th><th>Fonte</th><th>Attivo</th></tr></thead><tbody>
+   ${iban.map(i => `<tr><td>${h(i.iban.replace(/(.{4})/g, '$1 '))}</td><td>${h(i.intestatario)}</td><td class="wrap">${h(i.fonte)}</td><td><input type="checkbox" ${i.attivo ? 'checked' : ''} onchange="salva(()=>attivaIban(${i.id},this.checked))"></td></tr>`).join('')}</tbody></table>
+   <div class="griglia" id="nuovoiban" style="margin-top:10px">${campo('iban', 'Nuovo IBAN', '', 'text', 'l2')}${campo('intestatario', 'Intestatario', '')}${campo('fonte', 'Fonte (es. proforma n. …)', '')}</div>
+   <div class="azioni"><button class="b2" onclick="salva(nuovoIban,this)">+ Aggiungi IBAN</button><span class="nota">Il nuovo IBAN diventa quello attivo; i precedenti restano come storico.</span></div></div>
+  <div class="box"><h3>Procedure (${nom.length})</h3><table><thead><tr><th>Protocollo</th><th>Debitore</th><th>Ruolo</th><th>Dal</th><th>Al</th></tr></thead><tbody>
+   ${nom.map(n => { const r = princ(n.procedura_id); return `<tr class="cl" onclick="apriProcedura(${n.procedura_id})"><td>${h(r.protocollo)}</td><td>${h(r.debitore)}</td><td>${h(n.ruolo)}${n.quota < 100 ? ' ' + n.quota + '%' : ''}</td><td>${data(n.dal)}</td><td>${data(n.al)}</td></tr>`; }).join('')}</tbody></table></div>
+  <div class="box"><h3>Bonifici (${bon.length})</h3><table><thead><tr><th>Data</th><th>Stato</th><th class="n">Netto</th><th>Proforma</th></tr></thead><tbody>
+   ${bon.map(b => `<tr class="cl" onclick="apriBonifico(${b.id})"><td>${data(b.data)}</td><td>${h(b.stato)}</td><td class="n">${euro(b.netto)}</td><td>${h(b.proforma_numero)}</td></tr>`).join('')}</tbody></table></div>`);
+}
+async function salvaGestore() {
+  const {g} = S.g, n = leggi('#fgest');
+  if (n.codice_fiscale) { n.codice_fiscale = n.codice_fiscale.toUpperCase(); const e = cfEsito(n.codice_fiscale, n.cognome, n.nome); if (e && !confirm('Codice fiscale: ' + e + '. Salvare lo stesso?')) return; }
+  const patch = diff(g, n); if (!Object.keys(patch).length) return toast('Nessuna modifica');
+  const [r] = await api.update('gestori', {id: g.id}, patch); Object.assign(g, r); toast('Gestore salvato'); apriGestore(g.id);
+}
+async function attivaIban(id, on) { await api.update('gestori_iban', {id}, {attivo: on}); toast(on ? 'IBAN attivato' : 'IBAN disattivato'); }
+async function nuovoIban() {
+  const n = leggi('#nuovoiban'); if (!n.iban) return;
+  n.iban = n.iban.replace(/\s/g, '').toUpperCase(); if (!ibanOk(n.iban)) return toast('IBAN non valido (controllo mod 97)', true);
+  for (const i of S.g.iban.filter(i => i.attivo)) await api.update('gestori_iban', {id: i.id}, {attivo: false});
+  await api.insert('gestori_iban', {...n, gestore_id: S.g.g.id, attivo: true, dal: oggi()}); toast('IBAN aggiunto'); apriGestore(S.g.g.id);
+}
+function nuovoGestore() {
+  apri('Nuovo Gestore', `<div class="box" id="fngest"><div class="griglia">${campo('cognome', 'Cognome', '')}${campo('nome', 'Nome', '')}${campo('titolo', 'Titolo', '')}
+   ${campo('codice_fiscale', 'Codice fiscale', '')}${campo('email', 'Email', '')}${campo('pec', 'PEC', '')}${campo('telefono', 'Telefono', '')}
+   ${scelta('regime_fiscale', 'Regime', ['ordinario', 'forfettario'], '', '—')}${spunta('volenteroso', 'Volenteroso', false)}</div>
+   <div class="azioni"><button class="b" onclick="salva(creaGestore,this)">Crea</button></div></div>`);
+}
+async function creaGestore() {
+  const n = leggi('#fngest'); if (!n.cognome || !n.nome) return toast('Cognome e nome obbligatori', true);
+  n.cognome = n.cognome.toUpperCase();
+  if (n.codice_fiscale) { n.codice_fiscale = n.codice_fiscale.toUpperCase(); const e = cfEsito(n.codice_fiscale, n.cognome, n.nome); if (e && !confirm('Codice fiscale: ' + e + '. Salvare lo stesso?')) return; }
+  const [g] = await api.insert('gestori', n); S.gestori.push(g); toast('Gestore creato'); apriGestore(g.id);
+}
+
+// ---------- INCASSI ----------
+async function tabIncassi() {
+  $('#main').innerHTML = 'Caricamento…';
+  [S.inc] = await Promise.all([api.list('incassi', {order: [['data_contabile', false], ['id', false]]}), S.elenco.length ? null : api.list('v_elenco_procedure').then(r => S.elenco = r)]);
+  S.procMap = {}; S.elenco.forEach(r => { if (!S.procMap[r.procedura_id] || r.ruolo === 'principale') S.procMap[r.procedura_id] = r.protocollo + ' ' + r.debitore; });
+  const f = S.fi || (S.fi = {dal: '', al: '', q: '', d: '', s: false, e: true});
+  $('#main').innerHTML = `<div class="filtri"><label>Cerca<input id="iq" value="${h(f.q)}" size="28" placeholder="descrizione, procedura, importo"></label>
+   <label>Dal<input type="date" id="idal" value="${h(f.dal)}"></label><label>Al<input type="date" id="ial" value="${h(f.al)}"></label>
+   <label>Destinazione<select id="id">${opt(['gestore', 'occ'], f.d, 'tutte')}</select></label>
+   <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="ie" ${f.e ? 'checked' : ''}> solo entrate</label>
+   <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="is" ${f.s ? 'checked' : ''}> senza procedura</label>
+   <button class="b2" onclick="scaricaCSV('incassi_'+oggi()+'.csv',S.rows_inc.map(({_cls,...r})=>({...r,procedura:S.procMap[r.procedura_id]||''})))">Esporta CSV</button>${btnStampa('inc')}
+   <button class="b" onclick="nuovoIncasso()">+ Nuovo movimento</button></div><div id="lista"></div>`;
+  ['iq', 'idal', 'ial', 'id', 'ie', 'is'].forEach(id => $('#' + id).addEventListener(id === 'iq' ? 'input' : 'change', disegnaInc));
+  disegnaInc();
+}
+S.ridisegna_inc = () => disegnaInc();
+function disegnaInc() {
+  const f = S.fi = {q: $('#iq').value.trim().toLowerCase(), dal: $('#idal').value, al: $('#ial').value, d: $('#id').value, e: $('#ie').checked, s: $('#is').checked};
+  const r = S.inc.filter(i => (!f.q || [i.descrizione, i.note, S.procMap[i.procedura_id], i.procedura_foglio, euro(i.importo)].join(' ').toLowerCase().includes(f.q))
+    && (!f.dal || i.data_contabile >= f.dal) && (!f.al || i.data_contabile <= f.al) && (!f.d || i.destinazione === f.d) && (!f.e || i.importo > 0) && (!f.s || !i.procedura_id));
+  $('#lista').innerHTML = `<div class="conta">${r.length} movimenti · totale € ${euro(somma(r, i => i.importo))}</div>` + tabella('inc', [
+    {t: 'Data', v: i => i.data_contabile, f: i => data(i.data_contabile)}, {t: 'Importo', n: 1, v: i => Number(i.importo), f: i => euro(i.importo)},
+    {t: 'Procedura', v: i => S.procMap[i.procedura_id] || '', f: i => i.procedura_id ? h(S.procMap[i.procedura_id]) : (i.procedura_foglio ? `<span class="tag w">${h(i.procedura_foglio)}</span>` : '')},
+    {t: 'Dest.', v: i => i.destinazione, f: i => h(i.destinazione) + (i.finpiemonte ? ' <span class="tag">Finpiemonte</span>' : '') + (i.gestore_forzato_id ? ' → ' + h(nomeG(i.gestore_forzato_id)) + (i.quota_forzata ? ' ' + i.quota_forzata + '%' : '') : '')},
+    {t: 'Descrizione', w: 1, v: i => i.descrizione}, {t: 'Note', w: 1, v: i => i.note}], r, 'apriIncassoRiga');
+}
+function apriIncassoRiga(i) { apriIncasso(i.id); }
+const listaProc = () => `<datalist id="dlproc">${Object.entries(S.procMap).map(([id, t]) => `<option value="${h(t)}" data-id="${id}">`).join('')}</datalist>`;
+const procDaTesto = t => { const e = Object.entries(S.procMap).find(([, x]) => x === t); return e ? Number(e[0]) : null; };
+async function apriIncasso(id) {
+  apri('Movimento…', 'Caricamento…');
+  if (!S.elenco.length) S.elenco = await api.list('v_elenco_procedure');
+  if (!S.procMap) { S.procMap = {}; S.elenco.forEach(r => { if (!S.procMap[r.procedura_id] || r.ruolo === 'principale') S.procMap[r.procedura_id] = r.protocollo + ' ' + r.debitore; }); }
+  const [[i], quote] = await Promise.all([api.list('incassi', {f: [['eq', 'id', id]]}), api.list('v_quote_gestori', {f: [['eq', 'incasso_id', id]]})]);
+  S.i = i;
+  apri(`Movimento del ${data(i.data_contabile)} – € ${euro(i.importo)}`, `<div class="box" id="finc"><div class="nota" style="margin-bottom:8px">${h(i.descrizione)}${i.riga_foglio ? ` · BANCA riga ${i.riga_foglio}` : ''}${i.procedura_foglio ? ` · nel foglio: «${h(i.procedura_foglio)}»` : ''}</div><div class="griglia">
+   <label class="l2" style="grid-column:1/-1">Procedura<input id="iproc" list="dlproc" value="${h(S.procMap[i.procedura_id] || '')}" placeholder="scrivi protocollo o cognome"></label>${listaProc()}
+   ${scelta('destinazione', 'Destinazione', [['gestore', 'quota al Gestore'], ['occ', 'resta all\'OCC']], i.destinazione)}${spunta('finpiemonte', 'contributo Finpiemonte (senza IVA)', i.finpiemonte)}
+   ${scelta('gestore_forzato_id', 'Gestore forzato (eccezione)', optG(i.gestore_forzato_id, 'nessuno: vale la nomina'))}${campo('quota_forzata', 'Quota forzata %', i.quota_forzata, 'num')}
+   ${campo('data_valuta', 'Data valuta', i.data_valuta, 'date')}${area('note', 'Note', i.note)}</div>
+   <div class="azioni"><button class="b" onclick="salva(salvaIncasso,this)">Salva</button>${i.procedura_id ? `<button class="b2" onclick="apriProcedura(${i.procedura_id})">Apri procedura</button>` : ''}</div></div>
+  <div class="box"><h3>Quote ai Gestori</h3>${quote.length ? `<table><thead><tr><th>Gestore</th><th class="n">Quota</th><th class="n">Imponibile</th><th class="n">70%</th><th class="n">Netto</th><th>Bonifico</th></tr></thead><tbody>
+   ${quote.map(q => `<tr><td>${h(q.gestore)}</td><td class="n">${q.quota}%</td><td class="n">${euro(q.imponibile)}</td><td class="n">${euro(q.quota_70)}</td><td class="n">${euro(q.netto)}</td><td>${q.bonifico_id ? `<a href="#" onclick="apriBonifico(${q.bonifico_id});return false">${h(q.stato_bonifico)} ${data(q.data_bonifico)}</a>` : '<span class="tag w">da pagare</span>'}</td></tr>`).join('')}</tbody></table>` : '<span class="nota">Nessuna quota (resta all\'OCC, uscita o procedura senza Gestore)</span>'}</div>`);
+}
+async function salvaIncasso() {
+  const n = leggi('#finc'), t = $('#iproc').value.trim();
+  n.procedura_id = t ? procDaTesto(t) : null; if (t && !n.procedura_id) return toast('Procedura non trovata: sceglila dall\'elenco', true);
+  if (n.gestore_forzato_id) n.gestore_forzato_id = Number(n.gestore_forzato_id);
+  const patch = diff(S.i, n); if (!Object.keys(patch).length) return toast('Nessuna modifica');
+  const [r] = await api.update('incassi', {id: S.i.id}, patch); toast('Movimento salvato');
+  if (S.inc) { const k = S.inc.findIndex(x => x.id === r.id); if (k >= 0) S.inc[k] = r; if ($('#iq')) disegnaInc(); }
+  apriIncasso(r.id);
+}
+function nuovoIncasso() {
+  if (!S.procMap) return;
+  apri('Nuovo movimento', `<div class="box" id="fninc"><div class="griglia">${campo('data_contabile', 'Data contabile', oggi(), 'date')}${campo('importo', 'Importo (negativo per le uscite)', '', 'num')}
+   ${campo('descrizione', 'Descrizione banca', '', 'text', 'l2')}<label class="l2" style="grid-column:1/-1">Procedura<input id="nproc" list="dlproc"></label>${listaProc()}
+   ${scelta('destinazione', 'Destinazione', [['gestore', 'quota al Gestore'], ['occ', 'resta all\'OCC']], 'gestore')}${spunta('finpiemonte', 'Finpiemonte', false)}${area('note', 'Note', '')}</div>
+   <div class="azioni"><button class="b" onclick="salva(creaIncasso,this)">Crea</button><span class="nota">Di norma i movimenti arrivano dall'estratto conto: usare per i casi singoli.</span></div></div>`);
+}
+async function creaIncasso() {
+  const n = leggi('#fninc'), t = $('#nproc').value.trim();
+  if (!n.data_contabile || !n.importo || !n.descrizione) return toast('Data, importo e descrizione obbligatori', true);
+  n.procedura_id = t ? procDaTesto(t) : null; if (t && !n.procedura_id) return toast('Procedura non trovata', true);
+  const pari = S.inc.filter(i => i.data_contabile === n.data_contabile && Number(i.importo) === n.importo && i.descrizione === n.descrizione);
+  if (pari.length && !confirm('Esiste già un movimento identico. Crearne un altro?')) return;
+  n.progressivo = pari.length + 1;
+  const [r] = await api.insert('incassi', n); S.inc.unshift(r); toast('Movimento creato'); disegnaInc(); apriIncasso(r.id);
+}
+
+// ---------- ESTRATTO CONTO (saldo progressivo) ----------
+async function tabEstratto() {
+  $('#main').innerHTML = 'Caricamento…';
+  S.ec = (await api.list('v_estratto_conto')).sort((a, b) => b.data_contabile.localeCompare(a.data_contabile) || b.id - a.id);
+  const f = S.fec || (S.fec = {q: '', dal: '', al: ''});
+  $('#main').innerHTML = `<div class="filtri"><label>Cerca<input id="eq" value="${h(f.q)}" size="28" placeholder="descrizione, procedura, importo"></label>
+   <label>Dal<input type="date" id="edal" value="${h(f.dal)}"></label><label>Al<input type="date" id="eal" value="${h(f.al)}"></label>
+   <button class="b2" onclick="scaricaCSV('estratto-conto_'+oggi()+'.csv',S.rows_ec.map(({_cls,...r})=>r))">Esporta CSV</button>${btnStampa('ec')}
+   <span class="nota">Saldo attuale: <b>€ ${euro(S.ec.length ? S.ec[0].saldo : 0)}</b> al ${data(S.ec.length ? S.ec[0].data_contabile : '')}</span></div><div id="lista"></div>`;
+  ['eq', 'edal', 'eal'].forEach(id => $('#' + id).addEventListener(id === 'eq' ? 'input' : 'change', disegnaEc));
+  disegnaEc();
+}
+S.ridisegna_ec = () => disegnaEc();
+function disegnaEc() {
+  const f = S.fec = {q: $('#eq').value.trim().toLowerCase(), dal: $('#edal').value, al: $('#eal').value};
+  const r = S.ec.filter(x => (!f.q || [x.descrizione, x.note, x.procedura, euro(x.importo)].join(' ').toLowerCase().includes(f.q)) && (!f.dal || x.data_contabile >= f.dal) && (!f.al || x.data_contabile <= f.al));
+  $('#lista').innerHTML = `<div class="conta">${r.length} movimenti · entrate € ${euro(somma(r.filter(x => x.importo > 0), x => x.importo))} · uscite € ${euro(somma(r.filter(x => x.importo < 0), x => x.importo))}</div>` + tabella('ec', [
+    {t: 'Data', v: x => x.data_contabile, f: x => data(x.data_contabile)}, {t: 'Importo', n: 1, v: x => Number(x.importo), f: x => `<span style="color:${x.importo < 0 ? 'var(--err)' : 'inherit'}">${euro(x.importo)}</span>`},
+    {t: 'Saldo', n: 1, v: x => Number(x.saldo), f: x => '<b>' + euro(x.saldo) + '</b>'}, {t: 'Procedura', v: x => x.procedura},
+    {t: 'Descrizione', w: 1, v: x => x.descrizione}, {t: 'Note', w: 1, v: x => x.note}], r, 'apriIncassoRiga');
+}
+
+// ---------- DA PAGARE ----------
+async function tabDaPagare() {
+  $('#main').innerHTML = 'Caricamento…';
+  const tutte = await api.list('v_quote_gestori', {order: [['data_contabile']]});
+  // quote senza bonifico (o con bonifico annullato), una per incasso e Gestore
+  const visti = new Set(tutte.filter(q => q.bonifico_id && q.stato_bonifico !== 'annullato').map(q => q.incasso_id + '-' + q.gestore_id));
+  S.sospese = tutte.filter(q => q.stato_bonifico === 'sospeso' || q.stato_bonifico === 'proposto');
+  const fatti = new Set(); S.quote = [];
+  for (const q of tutte) { const k = q.incasso_id + '-' + q.gestore_id; if (visti.has(k) || fatti.has(k)) continue; fatti.add(k); S.quote.push(q); }
+  const f = S.fdp || (S.fdp = {lim: '2026-06-30', soglia: 1000});
+  $('#main').innerHTML = `<div class="filtri"><label>Incassi fino al<input type="date" id="plim" value="${h(f.lim)}"></label>
+   <label>Soglia €<input id="psog" value="${h(f.soglia)}" size="6" inputmode="decimal"></label>
+   <button class="b2" onclick="scaricaCSV('da-pagare_'+oggi()+'.csv',quoteFiltrate().map(({bonifico_id,stato_bonifico,data_bonifico,...q})=>q))">Esporta dettaglio CSV</button>${btnStampa('dp')}
+   <span class="nota">Regola: importo / 1,22 × 70% / 1,04 (Finpiemonte senza IVA); coppie 50%. In verde i Gestori sopra soglia.</span></div><div id="lista"></div>`;
+  $('#plim').addEventListener('change', disegnaDP); $('#psog').addEventListener('input', disegnaDP);
+  disegnaDP();
+}
+function quoteFiltrate() { const lim = $('#plim').value; return S.quote.filter(q => !lim || q.data_contabile <= lim); }
+S.ridisegna_dp = () => disegnaDP();
+function disegnaDP() {
+  S.fdp = {lim: $('#plim').value, soglia: Number(String($('#psog').value).replace(',', '.')) || 0};
+  const q = quoteFiltrate(), per = {};
+  q.forEach(x => { const g = per[x.gestore_id] || (per[x.gestore_id] = {gestore_id: x.gestore_id, gestore: x.gestore, mov: 0, netto: 0, cond: 0}); g.mov++; g.netto += Number(x.netto); if (x.condivisa) g.cond += Number(x.netto); });
+  const righe = Object.values(per).map(g => ({...g, _cls: g.netto > S.fdp.soglia ? 'sopra' : ''}));
+  const sopra = righe.filter(g => g.netto > S.fdp.soglia);
+  const sosp = S.sospese.filter(x => !S.fdp.lim || x.data_contabile <= S.fdp.lim), perS = {};
+  sosp.forEach(x => { const k = x.gestore + ' (' + x.stato_bonifico + ')'; perS[k] = (perS[k] || 0) + Number(x.netto); });
+  $('#lista').innerHTML = `<div class="conta">${righe.length} Gestori · ${q.length} quote · sopra soglia: ${sopra.length} Gestori per € ${euro(somma(sopra, g => g.netto))}</div>`
+    + (sosp.length ? `<div class="avviso">Già in un bonifico proposto o sospeso, quindi non elencati qui: ${Object.entries(perS).map(([k, v]) => h(k) + ' € ' + euro(v)).join(' · ')} (vedi «Bonifici»).</div>` : '') + tabella('dp', [
+    {t: 'Gestore', v: g => g.gestore}, {t: 'Movimenti', n: 1, v: g => g.mov}, {t: 'di cui condivise €', n: 1, v: g => g.cond, f: g => euro(g.cond)},
+    {t: 'Netto da bonificare €', n: 1, v: g => g.netto, f: g => '<b>' + euro(g.netto) + '</b>'}], righe, 'apriDaPagare',
+    `<td>Totale</td><td class="n">${q.length}</td><td class="n">${euro(somma(righe, g => g.cond))}</td><td class="n">${euro(somma(righe, g => g.netto))}</td>`);
+}
+function apriDaPagare(g) {
+  const q = quoteFiltrate().filter(x => x.gestore_id === g.gestore_id);
+  S.dpSel = {g, q};
+  apri(`Da pagare a ${g.gestore}`, `<div class="box"><table><thead><tr><th>Data</th><th>Procedura</th><th class="n">Importo</th><th class="n">Quota</th><th class="n">Imponibile</th><th class="n">70%</th><th class="n">Netto</th></tr></thead><tbody>
+   ${q.map(x => `<tr class="cl" onclick="apriIncasso(${x.incasso_id})"><td>${data(x.data_contabile)}</td><td>${h(x.protocollo)} ${h(x.debitore)}${x.condivisa ? ' <span class="tag">S</span>' : ''}</td><td class="n">${euro(x.importo)}</td><td class="n">${x.quota}%</td><td class="n">${euro(x.imponibile)}</td><td class="n">${euro(x.quota_70)}</td><td class="n">${euro(x.netto)}</td></tr>`).join('')}</tbody>
+   <tfoot><tr><td colspan="6">Totale netto (+4% Cassa, IVA e ritenuta secondo il regime)</td><td class="n">${euro(somma(q, x => x.netto))}</td></tr></tfoot></table>
+   <div class="azioni"><button class="b" onclick="salva(creaBonifico,this)">Crea bonifico «proposto» con questi ${q.length} movimenti</button>
+   <button class="b2" onclick="scaricaCSV('da-pagare_${h(g.gestore).replace(/\W+/g, '-')}_'+oggi()+'.csv',S.dpSel.q.map(({bonifico_id,stato_bonifico,data_bonifico,...x})=>x))">CSV</button>
+   <button class="b2" onclick="stampaHtml('Da pagare a '+S.dpSel.g.gestore,'incassi fino al '+data(S.fdp.lim),document.querySelector('#dcorpo .box table').outerHTML)">Stampa / PDF</button></div>
+   <p class="nota">Il bonifico proposto toglie questi movimenti da «Da pagare». Quando l'hai fatto davvero, apri il bonifico e metti stato «fatto», data, importi della proforma e IBAN. (Finché si usano i fogli: aggiornare anche BANCA e GESTORI-PAGAMENTI.)</p></div>`);
+}
+async function creaBonifico() {
+  const {g, q} = S.dpSel; if (!q.length) return;
+  const tot = Math.round(somma(q, x => x.netto) * 100) / 100;
+  if (!confirm(`Creare un bonifico proposto a ${g.gestore} per € ${euro(tot)} (${q.length} movimenti)?`)) return;
+  const ib = await api.list('gestori_iban', {f: [['eq', 'gestore_id', g.gestore_id], ['eq', 'attivo', true]]});
+  const [b] = await api.insert('bonifici_gestori', {gestore_id: g.gestore_id, stato: 'proposto', netto: tot, iban_id: ib.length === 1 ? ib[0].id : null, note: `creato dall'app il ${data(oggi())}, incassi fino al ${data($('#plim').value)}`});
+  // righe già legate a un bonifico annullato: si spostano sul nuovo (incasso + Gestore è unico)
+  const vecchie = await api.list('bonifici_righe', {f: [['in', 'incasso_id', q.map(x => x.incasso_id)], ['eq', 'gestore_id', g.gestore_id]]});
+  const nuove = [];
+  for (const x of q) {
+    const r = {bonifico_id: b.id, gestore_id: g.gestore_id, incasso_id: x.incasso_id, quota: x.quota, netto: x.netto, origine: 'app ' + oggi()};
+    const v = vecchie.find(y => y.incasso_id === x.incasso_id);
+    if (v) await api.update('bonifici_righe', {id: v.id}, r); else nuove.push(r);
+  }
+  if (nuove.length) await api.insert('bonifici_righe', nuove);
+  toast('Bonifico proposto creato'); vai('bonifici'); apriBonifico(b.id);
+}
+
+// ---------- BONIFICI ----------
+async function tabBonifici() {
+  $('#main').innerHTML = 'Caricamento…';
+  S.bon = await api.list('v_bonifici');
+  $('#main').innerHTML = `<div class="filtri"><label>Cerca<input id="bq" value="${h(S.bq)}"></label><label>Stato<select id="bs">${opt(STATI_BON, S.bs, 'tutti')}</select></label>
+   <label>Dal<input type="date" id="bdal" value="${h((S.fbon || {}).dal)}"></label><label>Al<input type="date" id="bal" value="${h((S.fbon || {}).al)}"></label>
+   <button class="b2" onclick="scaricaCSV('bonifici_'+oggi()+'.csv',S.rows_bon.map(({_cls,...b})=>b))">Esporta CSV</button>${btnStampa('bon')}</div><div id="lista"></div>`;
+  $('#bq').addEventListener('input', disegnaBon); ['bs', 'bdal', 'bal'].forEach(x => $('#' + x).addEventListener('change', disegnaBon)); disegnaBon();
+}
+S.ridisegna_bon = () => disegnaBon();
+function disegnaBon() {
+  S.bq = $('#bq').value.trim().toLowerCase(); S.bs = $('#bs').value; const fb = S.fbon = {dal: $('#bdal').value, al: $('#bal').value};
+  const r = S.bon.filter(b => (!S.bq || [b.gestore, b.proforma_numero, b.note].join(' ').toLowerCase().includes(S.bq)) && (!S.bs || b.stato === S.bs)
+    && (!fb.dal || (b.data && b.data >= fb.dal)) && (!fb.al || (b.data && b.data <= fb.al)));
+  $('#lista').innerHTML = `<div class="conta">${r.length} bonifici · netto € ${euro(somma(r, b => b.netto))}</div>` + tabella('bon', [
+    {t: 'Data', v: b => b.data || '9999', f: b => data(b.data)}, {t: 'Gestore', v: b => b.gestore},
+    {t: 'Stato', v: b => b.stato, f: b => `<span class="tag ${b.stato === 'fatto' ? '' : b.stato === 'annullato' ? 'e' : 'w'}">${h(b.stato)}</span>`},
+    {t: 'Netto', n: 1, v: b => Number(b.netto), f: b => euro(b.netto)}, {t: 'Movimenti', n: 1, v: b => Number(b.movimenti)}, {t: 'Proforma', v: b => b.proforma_numero},
+    {t: 'Note', w: 1, v: b => b.note}], r, 'apriBonRiga');
+}
+function apriBonRiga(b) { apriBonifico(b.id); }
+async function apriBonifico(id) {
+  apri('Bonifico…', 'Caricamento…');
+  const [[b], righe] = await Promise.all([api.list('bonifici_gestori', {f: [['eq', 'id', id]]}), api.list('bonifici_righe', {f: [['eq', 'bonifico_id', id]]})]);
+  const [ib, inc] = await Promise.all([api.list('gestori_iban', {f: [['eq', 'gestore_id', b.gestore_id]]}),
+    righe.length ? api.list('v_quote_gestori', {f: [['in', 'incasso_id', righe.map(r => r.incasso_id)], ['eq', 'gestore_id', b.gestore_id]]}) : []]);
+  S.b = b;
+  apri(`Bonifico a ${nomeG(b.gestore_id)}`, `<div class="box" id="fbon"><div class="griglia">
+   ${scelta('stato', 'Stato', STATI_BON, b.stato)}${campo('data', 'Data del bonifico', b.data, 'date')}
+   ${campo('netto', 'Compenso netto', b.netto, 'num')}${campo('cassa', 'Cassa 4%', b.cassa, 'num')}${campo('iva', 'IVA', b.iva, 'num')}${campo('ritenuta', 'Ritenuta', b.ritenuta, 'num')}${campo('bollo', 'Bollo', b.bollo, 'num')}
+   ${campo('totale_pagato', 'Totale bonificato', b.totale_pagato, 'num')}
+   ${scelta('iban_id', 'IBAN', `<option value="">—</option>` + ib.map(i => `<option value="${i.id}" ${i.id === b.iban_id ? 'selected' : ''}>${h(i.iban)}${i.attivo ? '' : ' (non attivo)'}</option>`).join(''), null)}
+   ${campo('proforma_numero', 'Proforma n.', b.proforma_numero)}${campo('proforma_data', 'Proforma del', b.proforma_data, 'date')}${campo('proforma_file', 'File della proforma (CONTABILE/…)', b.proforma_file, 'text', 'l2')}
+   ${area('note', 'Note', b.note)}</div>
+   <div class="azioni"><button class="b" onclick="salva(salvaBonifico,this)">Salva</button><button class="b2" onclick="calcolaTot()">Calcola totale</button>
+   <button class="b2" onclick="apriGestore(${b.gestore_id})">Apri Gestore</button></div>
+   <p class="nota">«annullato» rimette i movimenti tra quelli da pagare. Finché si usano i fogli, dopo un bonifico «fatto» aggiornare anche BANCA (Q, R, T) e GESTORI-PAGAMENTI.</p></div>
+  <div class="box"><h3>Movimenti (${righe.length})</h3><table><thead><tr><th>Data</th><th>Procedura</th><th class="n">Quota</th><th class="n">Netto</th><th>Origine</th></tr></thead><tbody>
+   ${righe.map(r => { const x = inc.find(q => q.incasso_id === r.incasso_id) || {}; return `<tr class="cl" onclick="apriIncasso(${r.incasso_id})"><td>${data(x.data_contabile)}</td><td>${h(x.protocollo)} ${h(x.debitore)}</td><td class="n">${r.quota}%</td><td class="n">${euro(r.netto)}</td><td class="nota">${h(r.origine)}</td></tr>`; }).join('')}</tbody>
+   <tfoot><tr><td colspan="3">Totale</td><td class="n">${euro(somma(righe, r => r.netto))}</td><td></td></tr></tfoot></table></div>`);
+}
+function calcolaTot() {
+  const n = leggi('#fbon'), t = (n.netto || 0) + (n.cassa || 0) + (n.iva || 0) - (n.ritenuta || 0) + (n.bollo || 0);
+  $('#fbon [data-c="totale_pagato"]').value = euro(t).replace(/\./g, '');
+}
+async function salvaBonifico() {
+  const n = leggi('#fbon'); if (n.iban_id) n.iban_id = Number(n.iban_id);
+  if (n.stato === 'fatto' && !n.data) return toast('Per «fatto» serve la data del bonifico', true);
+  if (n.stato === 'annullato' && S.b.stato !== 'annullato' && !confirm('Annullare il bonifico? I movimenti torneranno tra quelli da pagare.')) return;
+  const patch = diff(S.b, n); if (!Object.keys(patch).length) return toast('Nessuna modifica');
+  await api.update('bonifici_gestori', {id: S.b.id}, patch); toast('Bonifico salvato');
+  if (S.tab === 'bonifici') { S.bon = await api.list('v_bonifici'); disegnaBon(); }
+  apriBonifico(S.b.id);
+}
+
+// ---------- REPORT DGSTAT ----------
+async function tabReport() {
+  const a = S.anno || 2025;
+  $('#main').innerHTML = `<div class="filtri"><label>Anno<select id="ranno">${opt([2026, 2025, 2024, 2023, 2022], a)}</select></label>
+   <button class="b2" onclick="stampaHtml('Report statistico DGSTAT '+(S.anno||2025),'modello ministeriale ricostruito dal database, con i valori inviati',document.querySelector('#lista').innerHTML)">Stampa / PDF</button>
+   <span class="nota">Ricostruito dagli stati per persona; dove c'è il report inviato al Ministero si vede la differenza.</span></div><div id="lista">Caricamento…</div>`;
+  $('#ranno').addEventListener('change', () => { S.anno = Number($('#ranno').value); tabReport(); });
+  const [rep, conf] = await Promise.all([api.rpc('report_ministero', {p_anno: a}), api.rpc('confronto_report', {p_anno: a})]);
+  const inv = {}; conf.forEach(c => inv[c.sezione + '|' + c.tipologia + '|' + c.campo] = c.inviato);
+  const righe = rep.map(r => ({...r, inviato: inv[r.sezione + '|' + (r.tipologia || '-') + '|' + r.campo]}));
+  const conInv = righe.some(r => r.inviato != null);
+  $('#lista').innerHTML = `<div class="tab"><table><thead><tr><th>Sezione</th><th>Tipologia</th><th>Voce</th><th class="n">Calcolato</th>${conInv ? '<th class="n">Inviato</th><th class="n">Differenza</th>' : ''}</tr></thead><tbody>
+   ${righe.map(r => { const d = (Number(r.valore) || 0) - (Number(r.inviato) || 0); return `<tr><td>${h(r.sezione)}</td><td>${h(r.tipologia)}</td><td class="wrap">${h(r.voce)}</td><td class="n">${r.valore ?? ''}</td>${conInv ? `<td class="n">${r.inviato ?? ''}</td><td class="n">${r.inviato != null && d ? `<span class="tag w">${d > 0 ? '+' : ''}${d}</span>` : ''}</td>` : ''}</tr>`; }).join('')}</tbody></table></div>`;
+}
+
+// ---------- ADEMPIMENTI delle procedure condivise (Volenterosi) ----------
+const STATI_ADE = ['da fare', 'in corso', 'delega conferita', 'in attesa di riscontro', 'fatto', 'non necessario'];
+const ADE_CLS = {'da fare': 's-dafare', 'in corso': 's-incorso', 'delega conferita': 's-delega', 'in attesa di riscontro': 's-attesa', 'fatto': 's-fatto', 'non necessario': 's-nonnec'};
+const ADE_SIG = {'da fare': '○', 'in corso': '▶', 'delega conferita': 'D', 'in attesa di riscontro': '⏳', 'fatto': '✓', 'non necessario': '–'};
+const APERTI = s => s !== 'fatto' && s !== 'non necessario';
+async function tabAdempimenti() {
+  $('#main').innerHTML = 'Caricamento…';
+  const [ade, pa, el] = await Promise.all([
+    api.list('adempimenti', {order: [['ordine'], ['id']]}),
+    api.list('procedure_adempimenti'),
+    api.list('v_elenco_procedure', {f: [['eq', 'condivisa', true]]})]);
+  S.ade = ade.filter(a => a.attivo !== false);
+  S.paMap = {}; pa.forEach(x => S.paMap[x.procedura_id + '_' + x.adempimento_id] = x); S.pa = pa;
+  const pr = {};
+  el.forEach(r => { const o = pr[r.procedura_id] ||= {procedura_id: r.procedura_id, protocollo: r.protocollo, deb: [], gestore: r.gestore, fase: r.fase};
+    if (r.ruolo === 'principale') { o.protocollo = r.protocollo; o.deb.unshift(r.debitore); } else o.deb.push(r.debitore); });
+  S.procAde = Object.values(pr).map(o => ({...o, debitore: o.deb.join(' + ')})).sort((a, b) => a.protocollo.localeCompare(b.protocollo, 'it', {numeric: true}));
+  S.fa ||= {v: 'griglia', q: '', r: '', s: '', a: ''};
+  const resp = [...new Set(pa.map(x => x.responsabile).filter(Boolean))].sort();
+  const f = S.fa;
+  $('#main').innerHTML = `<div class="filtri">
+    <label>Vista<select onchange="S.fa.v=this.value;disegnaAde()">${opt([['griglia', 'Griglia procedure × adempimenti'], ['elenco', 'Elenco dei compiti']], f.v)}</select></label>
+    <label>Cerca<input value="${h(f.q)}" placeholder="debitore, protocollo, Gestore, esito…" oninput="S.fa.q=this.value;disegnaAde()"></label>
+    <label>Responsabile<select onchange="S.fa.r=this.value;disegnaAde()"><option value="">tutti</option>${S.me.nome ? `<option value="${h(S.me.nome)}" ${f.r === S.me.nome ? 'selected' : ''}>i miei (${h(S.me.nome)})</option>` : ''}${resp.filter(r => r !== S.me.nome).map(r => `<option ${f.r === r ? 'selected' : ''}>${h(r)}</option>`).join('')}</select></label>
+    <label>Stato<select onchange="S.fa.s=this.value;disegnaAde()"><option value="">tutti</option><option value="__aperti" ${f.s === '__aperti' ? 'selected' : ''}>solo da completare</option>${STATI_ADE.map(x => `<option ${f.s === x ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+    <label>Adempimento<select onchange="S.fa.a=this.value;disegnaAde()"><option value="">tutti</option>${S.ade.map(a => `<option value="${a.id}" ${String(f.a) === String(a.id) ? 'selected' : ''}>${h(a.nome)}</option>`).join('')}</select></label>
+    ${btnStampa('ade')}</div>
+    <div class="legenda">${STATI_ADE.map(x => `<span><span class="st ${ADE_CLS[x]}">${ADE_SIG[x]}</span> ${x}</span>`).join('')}<span><span class="st vuoto">+</span> non ancora registrato</span><span>· clic su una casella per aprirla</span></div>
+    <div id="lista"></div>`;
+  disegnaAde();
+}
+S.ridisegna_ade = () => disegnaAde();
+function adeOk(x) {           // filtri responsabile / stato / adempimento su una riga di procedure_adempimenti
+  const f = S.fa;
+  if (f.r && x.responsabile !== f.r && !(x.con || '').includes(f.r)) return false;
+  if (f.s === '__aperti' ? !APERTI(x.stato) : f.s && x.stato !== f.s) return false;
+  if (f.a && String(x.adempimento_id) !== String(f.a)) return false;
+  return true;
+}
+function disegnaAde() {
+  const f = S.fa, q = f.q.trim().toLowerCase();
+  const pOk = p => !q || [p.protocollo, p.debitore, p.gestore].some(v => (v || '').toLowerCase().includes(q));
+  const nomeA = id => (S.ade.find(a => a.id === id) || {}).nome || '';
+  if (f.v === 'griglia') {
+    const ades = f.a ? S.ade.filter(a => String(a.id) === String(f.a)) : S.ade;
+    const filtroRighe = f.r || f.s;
+    let righe = S.procAde.filter(pOk);
+    if (filtroRighe) righe = righe.filter(p => S.pa.some(x => x.procedura_id === p.procedura_id && adeOk(x)));
+    const cella = (p, a) => { const x = S.paMap[p.procedura_id + '_' + a.id];
+      const tit = x ? `${a.nome}: ${x.stato}${x.responsabile ? ' – ' + x.responsabile : ''}${x.esito ? ' – ' + x.esito : ''}` : a.nome + ': non registrato';
+      return `<span class="st ${x ? ADE_CLS[x.stato] : 'vuoto'}" title="${h(tit)}" onclick="event.stopPropagation();apriAde(${p.procedura_id},${a.id})">${x ? ADE_SIG[x.stato] : '+'}</span>`; };
+    $('#lista').innerHTML = `<div class="conta">${righe.length} procedure condivise</div>` + tabella('ade', [
+      {t: 'Protocollo', v: p => p.protocollo}, {t: 'Debitore', v: p => p.debitore}, {t: 'Gestore', v: p => p.gestore},
+      ...ades.map(a => ({t: a.codice, v: p => { const x = S.paMap[p.procedura_id + '_' + a.id]; return x ? STATI_ADE.indexOf(x.stato) : -1; }, f: p => cella(p, a)}))], righe);
+    document.querySelectorAll('#lista thead th').forEach((th, i) => { if (i >= 3) th.title = ades[i - 3].nome + (ades[i - 3].chi_di_norma ? ' (di norma: ' + ades[i - 3].chi_di_norma + ')' : ''); });
+  } else {
+    const pm = {}; S.procAde.forEach(p => pm[p.procedura_id] = p);
+    const righe = S.pa.filter(x => pm[x.procedura_id] && pOk(pm[x.procedura_id]) && adeOk(x) || (q && pm[x.procedura_id] && adeOk(x) && (x.esito || x.note || '').toLowerCase().includes(q)))
+      .map(x => ({...x, _p: pm[x.procedura_id], _ord: (S.ade.find(a => a.id === x.adempimento_id) || {}).ordine || 0}))
+      .sort((a, b) => a._p.protocollo.localeCompare(b._p.protocollo, 'it', {numeric: true}) || a._ord - b._ord);
+    $('#lista').innerHTML = `<div class="conta">${righe.length} compiti registrati</div>` + tabella('ade', [
+      {t: 'Protocollo', v: x => x._p.protocollo}, {t: 'Debitore', v: x => x._p.debitore}, {t: 'Adempimento', v: x => nomeA(x.adempimento_id)},
+      {t: 'Responsabile', v: x => x.responsabile}, {t: 'Con', v: x => x.con},
+      {t: 'Stato', v: x => STATI_ADE.indexOf(x.stato), f: x => `<span class="st ${ADE_CLS[x.stato]}">${ADE_SIG[x.stato]}</span> ${h(x.stato)}${x.avanzamento != null ? ' ' + x.avanzamento + '%' : ''}`},
+      {t: 'Inizio', v: x => x.data_inizio, f: x => data(x.data_inizio)}, {t: 'Fine', v: x => x.data_fine, f: x => data(x.data_fine)},
+      {t: 'Esito', w: 1, v: x => x.esito}, {t: 'Aggiornato', v: x => x.aggiornato_il, f: x => `${data(x.aggiornato_il)} <span class="nota">${h((x.aggiornato_da || '').split('@')[0])}</span>`}],
+      righe, 'apriAdeRiga');
+  }
+}
+function apriAdeRiga(x) { apriAde(x.procedura_id, x.adempimento_id); }
+function apriAde(pid, aid) {
+  const p = S.procAde.find(r => r.procedura_id === pid) || {}, a = S.ade.find(r => r.id === aid) || {};
+  const x = S.paMap[pid + '_' + aid] || {stato: 'da fare'};
+  S.adeAperto = {pid, aid, x};
+  const nomi = [...new Set([...S.pa.map(r => r.responsabile), ...S.pa.map(r => r.con), ...S.gestori.filter(g => g.volenteroso).map(g => g.nome.split(' ')[0]), 'Antonietta', 'Gestore'].filter(Boolean))].sort();
+  const altri = S.ade.map(b => { const y = S.paMap[pid + '_' + b.id]; return `<span class="st ${y ? ADE_CLS[y.stato] : 'vuoto'}" title="${h(b.nome + (y ? ': ' + y.stato : ''))}" onclick="apriAde(${pid},${b.id})" style="${b.id === aid ? 'outline:2px solid var(--acc)' : ''}">${h(b.codice)}</span>`; }).join(' ');
+  apri(`${p.protocollo || ''} ${p.debitore || ''} – ${a.nome || ''}`, `
+  <div class="box"><div class="nota">Gestore: <b>${h(p.gestore || '—')}</b> · fase: ${h(p.fase || '')}${a.chi_di_norma ? ` · di norma se ne occupa: <b>${h(a.chi_di_norma)}</b>` : ''}</div>
+   <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">${altri}</div></div>
+  <div class="box" id="fade"><h3>${h(a.nome || '')}</h3><datalist id="nomiade">${nomi.map(n => `<option value="${h(n)}">`).join('')}</datalist>
+   <div class="griglia">
+    <label>Responsabile<input data-c="responsabile" list="nomiade" value="${h(x.responsabile)}"></label>
+    <label>Con (altri che collaborano)<input data-c="con" list="nomiade" value="${h(x.con)}"></label>
+    ${scelta('stato', 'Stato', STATI_ADE, x.stato)}
+    ${campo('avanzamento', 'Avanzamento %', x.avanzamento, 'int')}
+    ${campo('data_inizio', 'Data inizio', x.data_inizio, 'date')}
+    ${campo('data_fine', 'Data fine / riscontro', x.data_fine, 'date')}
+    ${area('esito', 'Esito', x.esito)}
+    ${area('note', 'Note', x.note)}
+   </div>
+   <div class="azioni"><button class="b" onclick="salvaAde(this)">Salva</button>
+    <span class="nota">${x.id ? `Ultima modifica: ${new Date(x.aggiornato_il).toLocaleString('it-IT')} – ${h(x.aggiornato_da || '')}` : 'Non ancora registrato: «Salva» lo crea.'} · Le modifiche restano nel registro; nessuna cancellazione.</span></div></div>`);
+}
+async function salvaAde(btn) {
+  const {pid, aid, x} = S.adeAperto, n = leggi('#fade');
+  if (n.avanzamento != null && (isNaN(n.avanzamento) || n.avanzamento < 0 || n.avanzamento > 100)) return toast('Avanzamento tra 0 e 100', true);
+  if (n.data_inizio && n.data_fine && n.data_fine < n.data_inizio) return toast('La data di fine è prima di quella di inizio', true);
+  await salva(async () => {
+    if (x.id) { const d = diff(x, n); if (!Object.keys(d).length) return toast('Nessuna modifica'); await api.update('procedure_adempimenti', {id: x.id}, d); }
+    else await api.insert('procedure_adempimenti', {procedura_id: pid, adempimento_id: aid, ...n});
+    toast('Salvato');
+    const pa = await api.list('procedure_adempimenti'); S.pa = pa; S.paMap = {}; pa.forEach(y => S.paMap[y.procedura_id + '_' + y.adempimento_id] = y);
+    if (S.tab === 'adempimenti' && $('#lista')) disegnaAde();
+    apriAde(pid, aid);
+  }, btn);
+}
+
+// ---------- CAMBIO PASSWORD (la password la sceglie e la conosce solo l'utente) ----------
+function cambiaPassword() {
+  apri('Cambia password', `<div class="box"><form id="fpw" onsubmit="event.preventDefault();salvaPassword(this.querySelector('button'))">
+   <div class="griglia"><label>Nuova password<input id="pw1" type="password" autocomplete="new-password" minlength="10" required></label>
+   <label>Ripeti la nuova password<input id="pw2" type="password" autocomplete="new-password" minlength="10" required></label></div>
+   <div class="azioni"><button class="b" type="submit">Cambia password</button><span class="nota">Almeno 10 caratteri. Conservala nel tuo gestore di password: non la conosce nessun altro, nemmeno l'amministratore.</span></div></form></div>`);
+}
+function schermataPrimaPassword(msg) {
+  $('#app').innerHTML = `<div class="login"><h1>Database OCC</h1><div class="nota">Primo accesso: scegli la tua password personale al posto di quella provvisoria.</div>
+  <form onsubmit="event.preventDefault();primaPassword(this.querySelector('button'))">
+  <label>Nuova password (almeno 10 caratteri)<input id="pw1" type="password" autocomplete="new-password" minlength="10" required></label>
+  <label>Ripeti la nuova password<input id="pw2" type="password" autocomplete="new-password" minlength="10" required></label>
+  <button class="b" type="submit">Salva e entra</button> ${msg ? `<p class="tag e">${h(msg)}</p>` : ''}</form>
+  <p class="nota">Conservala nel tuo gestore di password: non la conosce nessun altro, nemmeno l'amministratore. · <a href="#" onclick="esci();return false">esci</a></p></div>`;
+}
+async function primaPassword(btn) {
+  const a = $('#pw1').value, b = $('#pw2').value;
+  if (a.length < 10) return schermataPrimaPassword('Almeno 10 caratteri');
+  if (a !== b) return schermataPrimaPassword('Le due password non coincidono');
+  btn.disabled = true;
+  const {error} = await sb.auth.updateUser({password: a});
+  if (error) return schermataPrimaPassword('Password non cambiata: ' + error.message);
+  try { await api.rpc('password_cambiata', {}); } catch (e) { return schermataPrimaPassword('Password cambiata, ma non registrata: ' + e.message); }
+  toast('Password cambiata'); entra();
+}
+async function salvaPassword(btn) {
+  const a = $('#pw1').value, b = $('#pw2').value;
+  if (a.length < 10) return toast('Almeno 10 caratteri', true);
+  if (a !== b) return toast('Le due password non coincidono', true);
+  if (!sb) return toast('Non disponibile in modalità di prova', true);
+  await salva(async () => { const {error} = await sb.auth.updateUser({password: a}); if (error) throw new Error(error.message); toast('Password cambiata'); chiudi(); }, btn);
+}
+
+// ---------- REGISTRO ----------
+async function tabRegistro() {
+  $('#main').innerHTML = 'Caricamento…';
+  const r = await sbUltimi();
+  $('#main').innerHTML = `<div class="filtri">${btnStampa('reg')}<span class="conta">Ultime ${r.length} modifiche (tutte restano nel database)</span></div>` + tabella('reg', [
+    {t: 'Quando', v: x => x.quando, f: x => new Date(x.quando).toLocaleString('it-IT')}, {t: 'Chi', v: x => x.email || 'import/Claudia'}, {t: 'Tabella', v: x => x.tabella},
+    {t: 'Operazione', v: x => x.operazione}, {t: 'Riga', v: x => x.chiave},
+    {t: 'Modifica', w: 1, v: x => '', f: x => x.operazione === 'UPDATE' ? Object.keys(x.dopo || {}).map(k => `<b>${h(k)}</b>: ${h(JSON.stringify(x.prima?.[k]))} → ${h(JSON.stringify(x.dopo[k]))}`).join('<br>') : h(JSON.stringify(x.dopo || x.prima).slice(0, 200))}], r);
+}
+S.ridisegna_reg = () => tabRegistro();
+async function sbUltimi() {
+  if (sb) { const {data, error} = await sb.from('registro_modifiche').select('*').order('id', {ascending: false}).limit(300); if (error) throw error; return data; }
+  return (await api.list('registro_modifiche')).slice(-300).reverse();
+}
+
+window.addEventListener('error', e => toast('Errore: ' + e.message, true));
+window.addEventListener('unhandledrejection', e => toast('Errore: ' + (e.reason && e.reason.message || e.reason), true));
+avvio();
+</script>
+</body>
+</html>
