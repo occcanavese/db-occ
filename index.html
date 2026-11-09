@@ -373,6 +373,7 @@ async function apriProcedura(id) {
     ${campo('attivo', 'Attivo', p.attivo, 'num')}${campo('passivo', 'Passivo', p.passivo, 'num')}
     ${campo('advisor', 'Advisor', p.advisor, 'text', 'l2')}
     ${campo('pec', 'PEC della procedura (solo indirizzo, mai la password)', p.pec, 'text', 'l2')}
+    ${campo('pec_username', 'Nome utente della PEC (mai la password)', p.pec_username, 'text')}
     ${spunta('condivisa', 'condivisa (Volenterosi)', p.condivisa)}
     ${campo('lexdebita_id', 'Id Lexdebita', p.lexdebita_id, 'int')}${campo('protocollo_lexdebita', 'Protocollo Lexdebita', p.protocollo_lexdebita)}
     ${campo('licenze_lexdebita', 'Licenze attivate il', p.licenze_lexdebita, 'date')}${campo('data_sentenza', 'Data sentenza/omologa', p.data_sentenza, 'date')}
@@ -782,10 +783,12 @@ const ADE_SIG = {'da fare': '○', 'in corso': '▶', 'delega conferita': 'D', '
 const APERTI = s => s !== 'fatto' && s !== 'non necessario';
 async function tabAdempimenti() {
   $('#main').innerHTML = 'Caricamento…';
-  const [ade, pa, el] = await Promise.all([
+  const [ade, pa, el, pec] = await Promise.all([
     api.list('adempimenti', {order: [['ordine'], ['id']]}),
     api.list('procedure_adempimenti'),
-    api.list('v_elenco_procedure', {f: [['eq', 'condivisa', true]]})]);
+    api.list('v_elenco_procedure', {f: [['eq', 'condivisa', true]]}),
+    api.list('procedure', {select: 'id,pec,pec_username', f: [['eq', 'condivisa', true]]})]);
+  S.pecMap = {}; pec.forEach(r => S.pecMap[r.id] = r);
   S.ade = ade.filter(a => a.attivo !== false);
   S.paMap = {}; pa.forEach(x => S.paMap[x.procedura_id + '_' + x.adempimento_id] = x); S.pa = pa;
   const pr = {};
@@ -852,7 +855,7 @@ function apriAde(pid, aid) {
   const nomi = [...new Set([...S.pa.map(r => r.responsabile), ...S.pa.map(r => r.con), ...S.gestori.filter(g => g.volenteroso).map(g => g.nome.split(' ')[0]), 'Antonietta', 'Gestore'].filter(Boolean))].sort();
   const altri = S.ade.map(b => { const y = S.paMap[pid + '_' + b.id]; return `<span class="st ${y ? ADE_CLS[y.stato] : 'vuoto'}" title="${h(b.nome + (y ? ': ' + y.stato : ''))}" onclick="apriAde(${pid},${b.id})" style="${b.id === aid ? 'outline:2px solid var(--acc)' : ''}">${h(b.codice)}</span>`; }).join(' ');
   apri(`${p.protocollo || ''} ${p.debitore || ''} – ${a.nome || ''}`, `
-  <div class="box"><div class="nota">Gestore: <b>${h(p.gestore || '—')}</b> · fase: ${h(p.fase || '')}${a.chi_di_norma ? ` · di norma se ne occupa: <b>${h(a.chi_di_norma)}</b>` : ''}</div>
+  <div class="box"><div class="nota">Gestore: <b>${h(p.gestore || '—')}</b> · fase: ${h(p.fase || '')}${(S.pecMap || {})[pid] && (S.pecMap[pid].pec || S.pecMap[pid].pec_username) ? ` · PEC: <b>${h(S.pecMap[pid].pec || '—')}</b>${S.pecMap[pid].pec_username ? ` (utente ${h(S.pecMap[pid].pec_username)})` : ''}` : ''}${a.chi_di_norma ? ` · di norma se ne occupa: <b>${h(a.chi_di_norma)}</b>` : ''}</div>
    <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">${altri}</div></div>
   <div class="box" id="fade"><h3>${h(a.nome || '')}</h3><datalist id="nomiade">${nomi.map(n => `<option value="${h(n)}">`).join('')}</datalist>
    <div class="griglia">
