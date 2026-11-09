@@ -212,7 +212,7 @@ async function entra() {
   if (S.me.cambio_password) return schermataPrimaPassword();
   const vol = S.me.ruolo === 'volenteroso';
   if (vol) S.tab = 'adempimenti';
-  const schede = vol ? [['adempimenti', 'Adempimenti delle procedure condivise']] : [['procedure','Procedure'],['adempimenti','Adempimenti'],['gestori','Gestori'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
+  const schede = vol ? [['adempimenti', 'Condivise']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
   $('#app').innerHTML = `<header><h1>Database OCC</h1><nav>${schede.map(([k,t]) => `<button data-t="${k}" onclick="vai('${k}')">${t}</button>`).join('')}</nav>
   <span class="chi">${h(S.me.nome || utente.email)} · <a href="#" onclick="cambiaPassword();return false">cambia password</a> · <a href="#" onclick="esci();return false">esci</a></span></header><main id="main">Caricamento…</main>`;
   try {
@@ -269,7 +269,7 @@ function stampaVista(id) {
   if (id === 'dp') return stampaHtml('Compensi da pagare ai Gestori', `incassi fino al ${data(S.fdp.lim)} · soglia € ${euro(S.fdp.soglia)} · regola: importo / 1,22 × 70% / 1,04 (Finpiemonte senza IVA)`, tabellaStampa('dp'));
   if (id === 'bon') { const f = S.fbon || {}; return stampaHtml('Bonifici ai Gestori', `${periodo(f.dal, f.al)} · ${n} bonifici · ` + filtriTesto([['cerca', S.bq], ['stato', S.bs]]),
       tabellaStampa('bon', null, `<td colspan="3">Totale netto</td><td class="n">${euro(somma(S.rows_bon, b => b.netto))}</td><td colspan="3"></td>`)); }
-  if (id === 'ade') { const f = S.fa; return stampaHtml('Adempimenti delle procedure condivise', `${n} righe · vista ${f.v === 'griglia' ? 'a griglia' : 'a elenco'} · ` + filtriTesto([['cerca', f.q], ['responsabile', f.r], ['stato', f.s], ['adempimento', f.a]]), tabellaStampa('ade')); }
+  if (id === 'ade') { const f = S.fa; return stampaHtml('Condivise – adempimenti delle procedure condivise', `${n} righe · vista ${f.v === 'griglia' ? 'a griglia' : 'a elenco'} · ` + filtriTesto([['cerca', f.q], ['responsabile', f.r], ['stato', f.s], ['adempimento', f.a]]), tabellaStampa('ade')); }
   if (id === 'reg') return stampaHtml('Registro modifiche', `${n} modifiche`, tabellaStampa('reg'));
 }
 const btnStampa = id => `<button class="b2" onclick="stampaVista('${id}')" title="Stampa l'elenco con i filtri attuali; per il PDF scegli «Salva come PDF» come stampante">Stampa / PDF</button>`;
