@@ -73,6 +73,8 @@ tfoot td{font-weight:600;position:sticky;bottom:0;background:var(--pane)}
 .st.s-delega,.st.s-attesa{background:var(--warnbg);color:var(--warn);border-color:var(--warn)}
 .st.s-fatto{background:var(--ok);color:#fff;border-color:var(--ok)}
 .st.s-nonnec{background:var(--line);color:var(--mute)}
+.st.s-doc{background:#fff3b0;color:#7a5d00;border-color:#c9a400}
+.st.s-sosp{background:var(--errbg);color:var(--err);border-color:var(--err)}
 .legenda{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin:4px 2px 8px}
 #stampa{display:none}
 @media print{
@@ -774,9 +776,9 @@ async function tabReport() {
 }
 
 // ---------- ADEMPIMENTI delle procedure condivise (Volenterosi) ----------
-const STATI_ADE = ['da fare', 'in corso', 'delega conferita', 'in attesa di riscontro', 'fatto', 'non necessario'];
-const ADE_CLS = {'da fare': 's-dafare', 'in corso': 's-incorso', 'delega conferita': 's-delega', 'in attesa di riscontro': 's-attesa', 'fatto': 's-fatto', 'non necessario': 's-nonnec'};
-const ADE_SIG = {'da fare': '○', 'in corso': '▶', 'delega conferita': 'D', 'in attesa di riscontro': '⏳', 'fatto': '✓', 'non necessario': '–'};
+const STATI_ADE = ['da fare', 'in corso', 'delega conferita', 'in attesa di riscontro', 'in attesa di documenti', 'sospeso', 'fatto', 'non necessario'];
+const ADE_CLS = {'da fare': 's-dafare', 'in corso': 's-incorso', 'delega conferita': 's-delega', 'in attesa di riscontro': 's-attesa', 'in attesa di documenti': 's-doc', 'sospeso': 's-sosp', 'fatto': 's-fatto', 'non necessario': 's-nonnec'};
+const ADE_SIG = {'da fare': '○', 'in corso': '▶', 'delega conferita': 'D', 'in attesa di riscontro': '⏳', 'in attesa di documenti': '…', 'sospeso': '‖', 'fatto': '✓', 'non necessario': '–'};
 const APERTI = s => s !== 'fatto' && s !== 'non necessario';
 async function tabAdempimenti() {
   $('#main').innerHTML = 'Caricamento…';
@@ -795,7 +797,7 @@ async function tabAdempimenti() {
   const f = S.fa;
   $('#main').innerHTML = `<div class="filtri">
     <label>Vista<select onchange="S.fa.v=this.value;disegnaAde()">${opt([['griglia', 'Griglia procedure × adempimenti'], ['elenco', 'Elenco dei compiti']], f.v)}</select></label>
-    <label>Cerca<input value="${h(f.q)}" placeholder="debitore, protocollo, Gestore, esito…" oninput="S.fa.q=this.value;disegnaAde()"></label>
+    <label>Cerca<input value="${h(f.q)}" placeholder="debitore, protocollo, Gestore, note…" oninput="S.fa.q=this.value;disegnaAde()"></label>
     <label>Responsabile<select onchange="S.fa.r=this.value;disegnaAde()"><option value="">tutti</option>${S.me.nome ? `<option value="${h(S.me.nome)}" ${f.r === S.me.nome ? 'selected' : ''}>i miei (${h(S.me.nome)})</option>` : ''}${resp.filter(r => r !== S.me.nome).map(r => `<option ${f.r === r ? 'selected' : ''}>${h(r)}</option>`).join('')}</select></label>
     <label>Stato<select onchange="S.fa.s=this.value;disegnaAde()"><option value="">tutti</option><option value="__aperti" ${f.s === '__aperti' ? 'selected' : ''}>solo da completare</option>${STATI_ADE.map(x => `<option ${f.s === x ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
     <label>Adempimento<select onchange="S.fa.a=this.value;disegnaAde()"><option value="">tutti</option>${S.ade.map(a => `<option value="${a.id}" ${String(f.a) === String(a.id) ? 'selected' : ''}>${h(a.nome)}</option>`).join('')}</select></label>
@@ -822,7 +824,7 @@ function disegnaAde() {
     let righe = S.procAde.filter(pOk);
     if (filtroRighe) righe = righe.filter(p => S.pa.some(x => x.procedura_id === p.procedura_id && adeOk(x)));
     const cella = (p, a) => { const x = S.paMap[p.procedura_id + '_' + a.id];
-      const tit = x ? `${a.nome}: ${x.stato}${x.responsabile ? ' – ' + x.responsabile : ''}${x.esito ? ' – ' + x.esito : ''}` : a.nome + ': non registrato';
+      const tit = x ? `${a.nome}: ${x.stato}${x.responsabile ? ' – ' + x.responsabile : ''}${x.note ? ' – ' + x.note : ''}` : a.nome + ': non registrato';
       return `<span class="st ${x ? ADE_CLS[x.stato] : 'vuoto'}" title="${h(tit)}" onclick="event.stopPropagation();apriAde(${p.procedura_id},${a.id})">${x ? ADE_SIG[x.stato] : '+'}</span>`; };
     $('#lista').innerHTML = `<div class="conta">${righe.length} procedure condivise</div>` + tabella('ade', [
       {t: 'Protocollo', v: p => p.protocollo}, {t: 'Debitore', v: p => p.debitore}, {t: 'Gestore', v: p => p.gestore},
@@ -830,7 +832,7 @@ function disegnaAde() {
     document.querySelectorAll('#lista thead th').forEach((th, i) => { if (i >= 3) th.title = ades[i - 3].nome + (ades[i - 3].chi_di_norma ? ' (di norma: ' + ades[i - 3].chi_di_norma + ')' : ''); });
   } else {
     const pm = {}; S.procAde.forEach(p => pm[p.procedura_id] = p);
-    const righe = S.pa.filter(x => pm[x.procedura_id] && pOk(pm[x.procedura_id]) && adeOk(x) || (q && pm[x.procedura_id] && adeOk(x) && (x.esito || x.note || '').toLowerCase().includes(q)))
+    const righe = S.pa.filter(x => pm[x.procedura_id] && pOk(pm[x.procedura_id]) && adeOk(x) || (q && pm[x.procedura_id] && adeOk(x) && (x.note || '').toLowerCase().includes(q)))
       .map(x => ({...x, _p: pm[x.procedura_id], _ord: (S.ade.find(a => a.id === x.adempimento_id) || {}).ordine || 0}))
       .sort((a, b) => a._p.protocollo.localeCompare(b._p.protocollo, 'it', {numeric: true}) || a._ord - b._ord);
     $('#lista').innerHTML = `<div class="conta">${righe.length} compiti registrati</div>` + tabella('ade', [
@@ -838,7 +840,7 @@ function disegnaAde() {
       {t: 'Responsabile', v: x => x.responsabile}, {t: 'Con', v: x => x.con},
       {t: 'Stato', v: x => STATI_ADE.indexOf(x.stato), f: x => `<span class="st ${ADE_CLS[x.stato]}">${ADE_SIG[x.stato]}</span> ${h(x.stato)}${x.avanzamento != null ? ' ' + x.avanzamento + '%' : ''}`},
       {t: 'Inizio', v: x => x.data_inizio, f: x => data(x.data_inizio)}, {t: 'Fine', v: x => x.data_fine, f: x => data(x.data_fine)},
-      {t: 'Esito', w: 1, v: x => x.esito}, {t: 'Aggiornato', v: x => x.aggiornato_il, f: x => `${data(x.aggiornato_il)} <span class="nota">${h((x.aggiornato_da || '').split('@')[0])}</span>`}],
+      {t: 'Note', w: 1, v: x => x.note}, {t: 'Aggiornato', v: x => x.aggiornato_il, f: x => `${data(x.aggiornato_il)} <span class="nota">${h((x.aggiornato_da || '').split('@')[0])}</span>`}],
       righe, 'apriAdeRiga');
   }
 }
@@ -860,7 +862,6 @@ function apriAde(pid, aid) {
     ${campo('avanzamento', 'Avanzamento %', x.avanzamento, 'int')}
     ${campo('data_inizio', 'Data inizio', x.data_inizio, 'date')}
     ${campo('data_fine', 'Data fine / riscontro', x.data_fine, 'date')}
-    ${area('esito', 'Esito', x.esito)}
     ${area('note', 'Note', x.note)}
    </div>
    <div class="azioni"><button class="b" onclick="salvaAde(this)">Salva</button>
