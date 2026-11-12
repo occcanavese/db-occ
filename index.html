@@ -766,14 +766,29 @@ async function tabReport() {
   const a = S.anno || 2025;
   $('#main').innerHTML = `<div class="filtri"><label>Anno<select id="ranno">${opt([2026, 2025, 2024, 2023, 2022], a)}</select></label>
    <button class="b2" onclick="stampaHtml('Report statistico DGSTAT '+(S.anno||2025),'modello ministeriale ricostruito dal database, con i valori inviati',document.querySelector('#lista').innerHTML)">Stampa / PDF</button>
-   <span class="nota">Ricostruito dagli stati per persona; dove c'è il report inviato al Ministero si vede la differenza.</span></div><div id="lista">Caricamento…</div>`;
+   <span class="nota">Ricostruito dagli stati per persona; dove c'è il report inviato al Ministero si vede la differenza. Dove c'è il dettaglio, clic su una voce per vedere le procedure che formano il valore inviato.</span></div><div id="lista">Caricamento…</div><div id="dettrep"></div>`;
   $('#ranno').addEventListener('change', () => { S.anno = Number($('#ranno').value); tabReport(); });
-  const [rep, conf] = await Promise.all([api.rpc('report_ministero', {p_anno: a}), api.rpc('confronto_report', {p_anno: a})]);
+  const [rep, conf, quad] = await Promise.all([api.rpc('report_ministero', {p_anno: a}), api.rpc('confronto_report', {p_anno: a}),
+    api.list('v_report_ministero_quadratura', {f: [['eq', 'anno', a]]}).catch(() => [])]);
   const inv = {}; conf.forEach(c => inv[c.sezione + '|' + c.tipologia + '|' + c.campo] = c.inviato);
-  const righe = rep.map(r => ({...r, inviato: inv[r.sezione + '|' + (r.tipologia || '-') + '|' + r.campo]}));
-  const conInv = righe.some(r => r.inviato != null);
-  $('#lista').innerHTML = `<div class="tab"><table><thead><tr><th>Sezione</th><th>Tipologia</th><th>Voce</th><th class="n">Calcolato</th>${conInv ? '<th class="n">Inviato</th><th class="n">Differenza</th>' : ''}</tr></thead><tbody>
-   ${righe.map(r => { const d = (Number(r.valore) || 0) - (Number(r.inviato) || 0); return `<tr><td>${h(r.sezione)}</td><td>${h(r.tipologia)}</td><td class="wrap">${h(r.voce)}</td><td class="n">${r.valore ?? ''}</td>${conInv ? `<td class="n">${r.inviato ?? ''}</td><td class="n">${r.inviato != null && d ? `<span class="tag w">${d > 0 ? '+' : ''}${d}</span>` : ''}</td>` : ''}</tr>`; }).join('')}</tbody></table></div>`;
+  const qd = {}; quad.forEach(q => qd[q.tipologia + '|' + q.campo] = q);
+  const righe = rep.map(r => ({...r, inviato: inv[r.sezione + '|' + (r.tipologia || '-') + '|' + r.campo], q: qd[(r.tipologia || '-') + '|' + r.campo]}));
+  const conInv = righe.some(r => r.inviato != null), conDet = quad.length > 0;
+  $('#lista').innerHTML = `<div class="tab"><table><thead><tr><th>Sezione</th><th>Tipologia</th><th>Voce</th><th class="n">Calcolato</th>${conInv ? '<th class="n">Inviato</th><th class="n">Differenza</th>' : ''}${conDet ? '<th class="n">Procedure (dettaglio)</th>' : ''}</tr></thead><tbody>
+   ${righe.map(r => { const d = (Number(r.valore) || 0) - (Number(r.inviato) || 0); const cl = r.q ? ` style="cursor:pointer" onclick="dettaglioCasella(${a},'${h(r.tipologia || '-')}','${h(r.campo)}')"` : '';
+     return `<tr${cl}><td>${h(r.sezione)}</td><td>${h(r.tipologia)}</td><td class="wrap">${h(r.voce)}</td><td class="n">${r.valore ?? ''}</td>${conInv ? `<td class="n">${r.inviato ?? ''}</td><td class="n">${r.inviato != null && d ? `<span class="tag w">${d > 0 ? '+' : ''}${d}</span>` : ''}</td>` : ''}${conDet ? `<td class="n">${r.q ? `<u>${r.q.dalle_procedure}</u>${Number(r.q.differenza) ? ` <span class="tag w">≠</span>` : ''}` : ''}</td>` : ''}</tr>`; }).join('')}</tbody></table></div>`;
+}
+async function dettaglioCasella(a, tip, campo) {
+  const box = $('#dettrep'); box.innerHTML = 'Caricamento…';
+  const r = await api.list('v_report_ministero_dettaglio', {f: [['eq', 'anno', a], ['eq', 'tipologia', tip], ['eq', 'campo', campo]], order: [['segno', false], ['protocollo']]});
+  r.sort((x, y) => (x.segno === y.segno ? 0 : x.segno === '+' ? -1 : 1) || x.protocollo.localeCompare(y.protocollo, 'it', {numeric: true}));
+  const tot = r.reduce((s, x) => s + (x.segno === '+' ? 1 : -1), 0);
+  const tit = `${a} · ${tip === '-' ? 'ISTANZE' : tip} · ${r[0] ? r[0].voce : campo}`;
+  box.innerHTML = `<h3 style="margin-top:18px">${h(tit)}: ${tot} <button class="b2" onclick="stampaHtml('Report ${a} – procedure della casella','${h(tit).replace(/'/g, '’')}',document.querySelector('#dettrep .tab').outerHTML)">Stampa / PDF</button></h3>
+   <p class="nota">«+» procedure che contano nella casella; «−» quelle da togliere nelle caselle calcolate per differenza. Totale = numero di «+» meno numero di «−».</p>
+   <div class="tab"><table><thead><tr><th></th><th>Prot.</th><th>Debitore</th><th>Ruolo</th><th>Gestore</th><th>Codice ${a - 1}</th><th>Codice ${a}</th><th>Motivo</th></tr></thead><tbody>
+   ${r.map(x => `<tr><td>${h(x.segno)}</td><td>${h(x.protocollo)}</td><td>${h(x.debitore)}</td><td>${h(x.ruolo || '')}</td><td>${h(x.gestore || '')}</td><td>${h(x.codice_anno_prec || '')}</td><td>${h(x.codice_anno || '')}</td><td class="wrap">${h(x.motivo || '')}</td></tr>`).join('')}</tbody></table></div>`;
+  box.scrollIntoView({behavior: 'smooth'});
 }
 
 // ---------- ADEMPIMENTI delle procedure condivise (Volenterosi) ----------
