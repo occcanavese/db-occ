@@ -323,7 +323,7 @@ async function tabProcedure() {
    <label>Cerca<input id="fq" placeholder="protocollo, debitore, Gestore, advisor" value="${h(f.q)}" size="30"></label>
    <label>Anno<select id="fa">${opt(anni, f.a, 'tutti')}</select></label>
    <label>Fase<select id="ff">${opt(FASI, f.f, 'tutte')}</select></label>
-   <label>Tipo<select id="ft">${opt(TIPI, f.t, 'tutti')}</select></label>
+   <label>Tipo Lexdebita<select id="ft">${opt(TIPI, f.t, 'tutti')}</select></label>
    <label>Gestore<select id="fg"><option value="">tutti</option>${S.gestori.map(g => `<option ${f.g === g.cognome + ' ' + g.nome ? 'selected' : ''}>${h(g.cognome + ' ' + g.nome)}</option>`).join('')}<option value="__nessuno" ${f.g === '__nessuno' ? 'selected' : ''}>senza Gestore</option></select></label>
    <label>DGSTAT 2026<select id="fd">${opt(S.codici.map(c => [c.codice, c.descrizione]), f.d, 'tutti')}</select></label>
    <label>Domanda dal<input type="date" id="fdd" value="${h(f.dd)}"></label><label>al<input type="date" id="fda" value="${h(f.da)}"></label>
@@ -344,7 +344,7 @@ function disegnaProc() {
   const righe = filtraProc();
   $('#lista').innerHTML = `<div class="conta">${righe.length} debitori su ${S.elenco.length}</div>` + tabella('proc', [
     {t: 'Protocollo', v: r => r.protocollo}, {t: 'Debitore', v: r => r.debitore, f: r => h(r.debitore) + (r.ruolo === 'familiare' ? ' <span class="tag">DF</span>' : '')},
-    {t: 'Tipo', v: r => r.tipo}, {t: 'Fase', v: r => FASI.indexOf(r.fase), f: r => h(r.fase) + (r.fase_stimata ? ' <span class="tag w" title="ricavata in automatico, da verificare">?</span>' : '')},
+    {t: 'Tipo prev.', v: r => r.tipo_preventivo}, {t: 'Tipo Lexdebita', v: r => r.tipo}, {t: 'Fase', v: r => FASI.indexOf(r.fase), f: r => h(r.fase) + (r.fase_stimata ? ' <span class="tag w" title="ricavata in automatico, da verificare">?</span>' : '')},
     {t: 'Gestore', v: r => r.gestore, f: r => h(r.gestore) + (r.condivisa ? ' <span class="tag" title="Gruppo dei Volenterosi">S</span>' : '')},
     {t: 'Domanda', v: r => r.data_domanda, f: r => data(r.data_domanda)}, {t: 'Preventivo', n: 1, v: r => Number(r.preventivo) || 0, f: r => euro(r.preventivo)},
     {t: 'Advisor', v: r => r.advisor}, {t: 'DGSTAT 25', v: r => r.dgstat_2025}, {t: 'DGSTAT 26', v: r => r.dgstat_2026}], righe, 'apriProcRiga');
@@ -364,7 +364,8 @@ async function apriProcedura(id) {
   const tit = `${princ.anno}/${String(princ.numero).padStart(3, '0')} ${princ.cognome || ''} ${princ.nome || ''}`;
   apri(tit, `
   <div class="box" id="fproc"><h3>Procedura</h3><div class="griglia">
-    ${scelta('tipo', 'Tipo', TIPI, p.tipo)}
+    ${scelta('tipo_preventivo', 'Tipo ipotizzato (preventivo)', TIPI, p.tipo_preventivo)}
+    <label title="Aggiornato ogni lunedì da Lexdebita: non si modifica qui">Tipo su Lexdebita<input value="${h(p.tipo)}${p.lexdebita_stato ? ' · ' + h(p.lexdebita_stato) : ''}" disabled></label>
     ${scelta('fase', 'Fase', FASI, p.fase)}
     <label>Data della fase (se la cambi)<input type="date" id="datafase" value="${oggi()}"></label>
     ${spunta('fase_stimata', 'fase da verificare', p.fase_stimata)}
@@ -462,7 +463,7 @@ function nuovaProcedura() {
   const anno = new Date().getFullYear(), ult = Math.max(0, ...S.elenco.filter(r => r.protocollo.startsWith(anno + '/')).map(r => parseInt(r.protocollo.slice(5), 10)));
   apri('Nuova procedura', `<div class="box" id="fnuova"><div class="griglia">
    ${campo('anno', 'Anno', anno, 'int')}${campo('numero', 'Protocollo n.', ult + 1, 'int')}${campo('cognome', 'Cognome', '')}${campo('nome', 'Nome', '')}
-   ${campo('codice_fiscale', 'Codice fiscale', '')}${scelta('tipo', 'Tipo', TIPI, 'ND')}${scelta('fase', 'Fase', FASI, 'contatto')}
+   ${campo('codice_fiscale', 'Codice fiscale', '')}${scelta('tipo_preventivo', 'Tipo ipotizzato (preventivo)', TIPI, 'ND')}${scelta('fase', 'Fase', FASI, 'contatto')}
    ${campo('data_domanda', 'Data domanda', '', 'date')}${campo('preventivo', 'Preventivo', '', 'num')}${campo('advisor', 'Advisor', '', 'text', 'l2')}
    ${scelta('gestore_id', 'Gestore', optG(null, 'non ancora'))}</div>
    <div class="azioni"><button class="b" onclick="salva(creaProcedura,this)">Crea</button><span class="nota">Ultimo protocollo ${anno}: ${ult}</span></div></div>`);
@@ -472,7 +473,7 @@ async function creaProcedura() {
   if (!n.anno || !n.numero || !n.cognome) return toast('Anno, numero e cognome sono obbligatori', true);
   if (S.elenco.some(r => r.protocollo === n.anno + '/' + String(n.numero).padStart(3, '0'))) return toast('Protocollo già usato', true);
   if (n.codice_fiscale) { n.codice_fiscale = n.codice_fiscale.toUpperCase(); const e = cfEsito(n.codice_fiscale, n.cognome, n.nome); if (e && !confirm('Codice fiscale: ' + e + '. Salvare lo stesso?')) return; }
-  const [p] = await api.insert('procedure', {tipo: n.tipo, fase: n.fase, data_domanda: n.data_domanda, preventivo: n.preventivo, advisor: n.advisor});
+  const [p] = await api.insert('procedure', {tipo: 'ND', tipo_preventivo: n.tipo_preventivo, fase: n.fase, data_domanda: n.data_domanda, preventivo: n.preventivo, advisor: n.advisor});
   await api.insert('debitori', {procedura_id: p.id, anno: n.anno, numero: n.numero, cognome: n.cognome.toUpperCase(), nome: n.nome || '', codice_fiscale: n.codice_fiscale, ruolo: 'principale'});
   await api.upsert('procedure_fasi', {procedura_id: p.id, fase: n.fase, data: oggi(), nota: 'creata dall\'app'}, 'procedura_id,fase');
   if (n.gestore_id) await api.insert('procedure_gestori', {procedura_id: p.id, gestore_id: Number(n.gestore_id), ruolo: 'gestore', quota: 100, dal: oggi()});
