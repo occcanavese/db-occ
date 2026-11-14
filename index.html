@@ -115,6 +115,8 @@ const URL_DB = 'https://vnenmfmmvgkimnkvxpxy.supabase.co';
 const CHIAVE_PUBBLICA = 'sb_publishable_RRD3RBBWok5kyXVN42ngEg_icgbHjM9';   // chiave pubblica (publishable): fatta per stare nella pagina, da sola non apre i dati
 const FASI = ['contatto','preventivo','incarico','caricata','nominato','depositata','omologata','chiusa'];
 const TIPI = ['LP','PD','AD','IN','ND'];
+// stati di Lexdebita nell'ordine della pratica (per filtro e ordinamento dell'elenco procedure)
+const STATI_LD = ['Acquisita', 'Assegnata al gestore', 'Consegnata dal gestore (Pronta per deposito)', 'Depositata', 'Omologata', 'Conclusa', 'Rinunciata', 'Rigettata', 'Improcedibile', 'Inammissibile'];
 const TIPI_DESCR = {LP: 'Liquidazione controllata (ex Liquidazione del patrimonio)', PD: 'Ristrutturazione dei debiti del consumatore (ex Piano del consumatore)', AD: 'Concordato minore (ex Accordo di composizione della crisi)', IN: 'Esdebitazione del debitore incapiente', ND: 'Da definire'};
 const tipoTit = t => t ? `<span title="${h(TIPI_DESCR[t] || t)}" style="cursor:help;border-bottom:1px dotted">${h(t)}</span>` : '';
 const STATI_BON = ['proposto','sospeso','fatto','annullato'];
@@ -267,7 +269,7 @@ function filtriTesto(pairs) { return pairs.filter(([, v]) => v).map(([k, v]) => 
 function stampaVista(id) {
   const n = (S['rows_' + id] || []).length;
   if (!n) return toast('Niente da stampare con questi filtri', true);
-  if (id === 'proc') { const f = S.fp; return stampaHtml('Elenco procedure', `${n} debitori · ${periodo(f.dd, f.da)} (data domanda) · ` + filtriTesto([['cerca', f.q], ['anno', f.a], ['fase', f.f], ['tipo', f.t], ['Gestore', f.g === '__nessuno' ? 'senza Gestore' : f.g], ['DGSTAT 2026', f.d], ['solo fase da verificare', f.s ? 'sì' : '']]), tabellaStampa('proc')); }
+  if (id === 'proc') { const f = S.fp; return stampaHtml('Elenco procedure', `${n} debitori · ${periodo(f.dd, f.da)} (data domanda) · ` + filtriTesto([['cerca', f.q], ['anno', f.a], ['stato Lexdebita', f.f === '__nessuno' ? 'non su Lexdebita' : f.f], ['tipo', f.t], ['Gestore', f.g === '__nessuno' ? 'senza Gestore' : f.g], ['DGSTAT 2026', f.d]]), tabellaStampa('proc')); }
   if (id === 'gest') return stampaHtml('Gestori', `${n} Gestori · ` + filtriTesto([['cerca', S.gq], ['solo con procedure in carico', S.gc ? 'sì' : '']]), tabellaStampa('gest'));
   if (id === 'inc') { const f = S.fi, r = S.rows_inc; return stampaHtml('Incassi', `${periodo(f.dal, f.al)} · ${n} movimenti · ` + filtriTesto([['cerca', f.q], ['destinazione', f.d], ['solo entrate', f.e ? 'sì' : ''], ['senza procedura', f.s ? 'sì' : '']]),
       tabellaStampa('inc', null, `<td>Totale</td><td class="n">${euro(somma(r, i => i.importo))}</td><td colspan="4"></td>`)); }
@@ -331,21 +333,20 @@ async function tabProcedure() {
   $('#main').innerHTML = `<div class="filtri">
    <label>Cerca<input id="fq" placeholder="protocollo, debitore, Gestore, advisor" value="${h(f.q)}" size="30"></label>
    <label>Anno<select id="fa">${opt(anni, f.a, 'tutti')}</select></label>
-   <label>Fase<select id="ff">${opt(FASI, f.f, 'tutte')}</select></label>
+   <label>Stato Lexdebita<select id="ff">${opt([...STATI_LD.filter(s => S.elenco.some(r => r.lexdebita_stato === s)), ...[...new Set(S.elenco.map(r => r.lexdebita_stato).filter(s => s && !STATI_LD.includes(s)))].sort(), ['__nessuno', 'non su Lexdebita']], f.f, 'tutti')}</select></label>
    <label>Tipo Lexdebita<select id="ft">${opt(TIPI, f.t, 'tutti')}</select></label>
    <label>Gestore<select id="fg"><option value="">tutti</option>${S.gestori.map(g => `<option ${f.g === g.cognome + ' ' + g.nome ? 'selected' : ''}>${h(g.cognome + ' ' + g.nome)}</option>`).join('')}<option value="__nessuno" ${f.g === '__nessuno' ? 'selected' : ''}>senza Gestore</option></select></label>
    <label>DGSTAT 2026<select id="fd">${opt(S.codici.map(c => [c.codice, c.descrizione]), f.d, 'tutti')}</select></label>
    <label>Domanda dal<input type="date" id="fdd" value="${h(f.dd)}"></label><label>al<input type="date" id="fda" value="${h(f.da)}"></label>
-   <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="fs" ${f.s ? 'checked' : ''}> fase da verificare</label>
    <button class="b2" onclick="esportaProc()">Esporta CSV</button>${btnStampa('proc')}<button class="b" onclick="nuovaProcedura()">+ Nuova procedura</button></div><div id="lista"></div>`;
-  ['fq', 'fa', 'ff', 'ft', 'fg', 'fd', 'fs', 'fdd', 'fda'].forEach(id => $('#' + id).addEventListener(id === 'fq' ? 'input' : 'change', disegnaProc));
+  ['fq', 'fa', 'ff', 'ft', 'fg', 'fd', 'fdd', 'fda'].forEach(id => $('#' + id).addEventListener(id === 'fq' ? 'input' : 'change', disegnaProc));
   disegnaProc();
 }
 function filtraProc() {
-  const f = S.fp = {q: $('#fq').value.trim().toLowerCase(), a: $('#fa').value, f: $('#ff').value, t: $('#ft').value, g: $('#fg').value, d: $('#fd').value, s: $('#fs').checked, dd: $('#fdd').value, da: $('#fda').value};
+  const f = S.fp = {q: $('#fq').value.trim().toLowerCase(), a: $('#fa').value, f: $('#ff').value, t: $('#ft').value, g: $('#fg').value, d: $('#fd').value, dd: $('#fdd').value, da: $('#fda').value};
   return S.elenco.filter(r => (!f.q || [r.protocollo, r.debitore, r.gestore, r.advisor].join(' ').toLowerCase().includes(f.q))
-    && (!f.a || r.protocollo.startsWith(f.a)) && (!f.f || r.fase === f.f) && (!f.t || r.tipo === f.t) && (!f.d || r.dgstat_2026 === f.d)
-    && (!f.g || (f.g === '__nessuno' ? !r.gestore : (r.gestore || '').includes(f.g))) && (!f.s || r.fase_stimata)
+    && (!f.a || r.protocollo.startsWith(f.a)) && (!f.f || (f.f === '__nessuno' ? !r.lexdebita_stato : r.lexdebita_stato === f.f)) && (!f.t || r.tipo === f.t) && (!f.d || r.dgstat_2026 === f.d)
+    && (!f.g || (f.g === '__nessuno' ? !r.gestore : (r.gestore || '').includes(f.g)))
     && (!f.dd || (r.data_domanda && r.data_domanda >= f.dd)) && (!f.da || (r.data_domanda && r.data_domanda <= f.da)));
 }
 S.ridisegna_proc = () => disegnaProc();
@@ -353,7 +354,7 @@ function disegnaProc() {
   const righe = filtraProc();
   $('#lista').innerHTML = `<div class="conta">${righe.length} debitori su ${S.elenco.length}</div>` + tabella('proc', [
     {t: 'Protocollo', v: r => r.protocollo}, {t: 'Debitore', v: r => r.debitore, f: r => h(r.debitore) + (r.ruolo === 'familiare' ? ' <span class="tag">DF</span>' : '')},
-    {t: 'Tipo prev.', v: r => r.tipo_preventivo, f: r => tipoTit(r.tipo_preventivo)}, {t: 'Tipo Lexdebita', v: r => r.tipo, f: r => tipoTit(r.tipo)}, {t: 'Fase', v: r => FASI.indexOf(r.fase), f: r => h(r.fase) + (r.fase_stimata ? ' <span class="tag w" title="ricavata in automatico, da verificare">?</span>' : '')},
+    {t: 'Tipo prev.', v: r => r.tipo_preventivo, f: r => tipoTit(r.tipo_preventivo)}, {t: 'Tipo Lexdebita', v: r => r.tipo, f: r => tipoTit(r.tipo)}, {t: 'Stato Lexdebita', v: r => r.lexdebita_stato ? (STATI_LD.indexOf(r.lexdebita_stato) + 1 || 99) : 999, f: r => r.lexdebita_stato ? `<span title="aggiornato ogni lunedì da Lexdebita">${h(r.lexdebita_stato)}</span>` : '<span class="nota">non su Lexdebita</span>'},
     {t: '%Tappe', n: 1, v: r => S.avz[r.procedura_id] ? Number(S.avz[r.procedura_id].avanzamento_pct) || 0 : -1, f: r => avzCella(r.procedura_id)},
     {t: 'Gestore', v: r => r.gestore, f: r => h(r.gestore) + (r.condivisa ? ' <span class="tag" title="Gruppo dei Volenterosi">S</span>' : '')},
     {t: 'Domanda', v: r => r.data_domanda, f: r => data(r.data_domanda)}, {t: 'Preventivo', n: 1, v: r => Number(r.preventivo) || 0, f: r => euro(r.preventivo)},
