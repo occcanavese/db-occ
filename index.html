@@ -475,30 +475,43 @@ async function tabMonitoraggio() {
   $('#main').innerHTML = 'Caricamento…';
   try { await caricaMonitoraggio(); } catch (e) { $('#main').innerHTML = `<div class="avviso">Vista v_monitoraggio non disponibile: ${h(e.message)}</div>`; return; }
   $('#main').innerHTML = `<div class="filtri"><label>Cerca (Gestore, debitore, protocollo)<input id="mq" value="${h(S.mq || '')}" size="34"></label>
-   <label>Ordina per<select id="mo">${opt([['gestore', 'Gestore'], ['n', 'N. pratiche'], ['ferme', 'Pratiche ferme'], ['media', 'Avanzamento medio']], S.mo || 'gestore')}</select></label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="mf" ${S.mf ? 'checked' : ''}> solo pratiche ferme</label>
    <button class="b2" onclick="monTutti(true)">Espandi tutti</button><button class="b2" onclick="monTutti(false)">Chiudi tutti</button>
    <button class="b2" onclick="esportaMon()">Esporta CSV</button></div>
-   <div class="nota" style="margin-bottom:6px">Gestori a cui chiedere l'aggiornamento delle tappe: tutti quelli con almeno una pratica «Assegnata al gestore». Clic sul Gestore per vedere le pratiche; clic sulla pratica per le tappe. Le pratiche in coppia compaiono sotto entrambi i Gestori. «Ferma» = nessun aggiornamento da 4 mesi (o mai).</div>
+   <div class="nota" style="margin-bottom:6px">Gestori a cui chiedere l'aggiornamento delle tappe: tutti quelli con almeno una pratica «Assegnata al gestore». Clic sul Gestore per vedere le pratiche; clic sulla pratica per le tappe; clic sull'intestazione di una colonna per ordinare (le pratiche aperte si ordinano allo stesso modo). Le pratiche in coppia compaiono sotto entrambi i Gestori. «Ferma» = nessun aggiornamento da 4 mesi (o mai).</div>
    <div id="lista"></div>`;
-  $('#mq').addEventListener('input', disegnaMon); $('#mo').addEventListener('change', disegnaMon); $('#mf').addEventListener('change', disegnaMon);
+  $('#mq').addEventListener('input', disegnaMon); $('#mf').addEventListener('change', disegnaMon);
   disegnaMon();
 }
+// colonne della scheda: valore per il Gestore (g) e per la singola pratica (p), usati per ordinare
+const MON_COL = [
+  {t: 'Gestore / pratica', g: g => g.gestore, p: p => p.protocollo_lexdebita},
+  {t: 'Email', g: g => g.email, p: p => p.tipo},
+  {t: 'Pratiche', n: 1, g: (g, pr) => pr.length, p: p => p.protocollo_lexdebita},
+  {t: 'Aggiornate', n: 1, g: g => g.agg, p: p => p.ultimo_aggiornamento ? 1 : 0},
+  {t: 'Ferme', n: 1, g: g => g.ferme, p: p => p.ferma ? 1 : 0},
+  {t: 'In attesa doc.', n: 1, g: g => g.doc, p: p => p.giorni_attesa_documenti ?? -1},
+  {t: 'Bloccate', n: 1, g: g => g.bl, p: p => Number(p.tappe_bloccate) || 0},
+  {t: 'Avanzamento', g: g => g.media, p: p => Number(p.avanzamento_pct) || 0},
+  {t: 'Ultimo aggiornamento', g: g => g.ultimo || '', p: p => p.ultimo_aggiornamento || ''}];
+function ordinaMon(i) { const o = S.monOrd || {c: 0, d: 1}; S.monOrd = {c: i, d: o.c === i ? -o.d : (MON_COL[i].n || i >= 7 ? -1 : 1)}; disegnaMon(); }
 function monFiltro() {
-  S.mq = $('#mq').value.trim().toLowerCase(); S.mo = $('#mo').value; S.mf = $('#mf').checked;
+  S.mq = $('#mq').value.trim().toLowerCase(); S.mf = $('#mf').checked;
   const q = S.mq, out = [];
   for (const g of S.mon) {
     let pr = g.pr.filter(p => !S.mf || p.ferma);
     if (q && !g.gestore.toLowerCase().includes(q)) pr = pr.filter(p => [p.debitori, p.protocollo_lexdebita].join(' ').toLowerCase().includes(q));
     if (pr.length) out.push({g, pr});
   }
-  const k = S.mo; out.sort((a, b) => k === 'gestore' ? a.g.gestore.localeCompare(b.g.gestore, 'it') : (b.g[k] - a.g[k]) || a.g.gestore.localeCompare(b.g.gestore, 'it'));
+  const o = S.monOrd || {c: 0, d: 1}, col = MON_COL[o.c], cmp = (x, y) => { x = x ?? ''; y = y ?? ''; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'it', {numeric: true})) * o.d; };
+  out.forEach(x => x.pr = [...x.pr].sort((a, b) => cmp(col.p(a), col.p(b)) || String(a.protocollo_lexdebita).localeCompare(String(b.protocollo_lexdebita), 'it', {numeric: true})));
+  out.sort((a, b) => cmp(col.g(a.g, a.pr), col.g(b.g, b.pr)) || a.g.gestore.localeCompare(b.g.gestore, 'it'));
   return out;
 }
 function disegnaMon() {
   const r = monFiltro(), np = new Set(r.flatMap(x => x.pr.map(p => p.procedura_id))).size;
   $('#lista').innerHTML = `<div class="conta">${r.length} Gestori · ${np} pratiche da monitorare</div>
-  <div class="tab"><table><thead><tr><th>Gestore / pratica</th><th>Email</th><th class="n">Pratiche</th><th class="n">Aggiornate</th><th class="n">Ferme</th><th class="n">In attesa doc.</th><th class="n">Bloccate</th><th>Avanzamento</th><th>Ultimo aggiornamento</th></tr></thead><tbody>
+  <div class="tab"><table><thead><tr>${MON_COL.map((c, i) => { const o = S.monOrd || {c: 0, d: 1}; return `<th class="${c.n ? 'n' : ''}" onclick="ordinaMon(${i})" title="Clic per ordinare">${h(c.t)}${o.c === i ? (o.d > 0 ? ' ▲' : ' ▼') : ''}</th>`; }).join('')}</tr></thead><tbody>
   ${r.map(({g, pr}) => { const ap = !!S.monAp[g.id];
     return `<tr class="cl mon-g" onclick="monApri(${g.id})"><td><span class="fr">${ap ? '▾' : '▸'}</span>${h(g.gestore)}${g.volenteroso ? ' <span class="tag">Volenteroso</span>' : ''}</td>
     <td>${h(g.email || '')}${g.email ? '' : ' <span class="tag w">manca</span>'}</td><td class="n">${pr.length}</td><td class="n">${g.agg}</td><td class="n">${g.ferme ? `<span class="tag w">${g.ferme}</span>` : 0}</td>
