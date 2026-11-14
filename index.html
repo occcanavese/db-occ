@@ -28,7 +28,7 @@ button:disabled{opacity:.5;cursor:default}
 .tab{background:var(--pane);border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:calc(100vh - 190px)}
 table{border-collapse:collapse;width:100%}
 th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:top}
-th{position:sticky;top:0;background:var(--th);font-size:12px;color:var(--thtx);font-weight:700;cursor:pointer;user-select:none;border-bottom:0}
+th{position:sticky;top:0;vertical-align:bottom;line-height:1.2;background:var(--th);font-size:12px;color:var(--thtx);font-weight:700;cursor:pointer;user-select:none;border-bottom:0}
 tbody tr.cl{cursor:pointer}
 th .rz{position:absolute;right:-3px;top:0;bottom:0;width:7px;cursor:col-resize;z-index:1}
 th .rz:hover,th .rz.on{background:var(--acc);opacity:.5}
@@ -244,13 +244,14 @@ function chiudi() { $('#drawer').classList.remove('on'); }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') chiudi(); });
 
 // tabella generica con ordinamento per colonna
+const tTit = t => h(t).replace(/\n/g, '<br>');   // titolo di colonna: \n = a capo
 function tabella(id, cols, righe, onclick, piede) {
   const st = S['ord_' + id] || {};
   if (st.c != null) { const c = cols[st.c]; righe = [...righe].sort((a, b) => { let x = c.v(a), y = c.v(b); x = x ?? ''; y = y ?? ''; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'it', {numeric: true})) * st.d; }); }
   S['rows_' + id] = righe;
   S['cols_' + id] = cols; S['piede_' + id] = piede;
   const lg = larghezze(id, cols.length);
-  return `<div class="tab"><table data-id="${id}" ${lg ? `class="fissa" style="width:${lg.reduce((a, b) => a + b, 0)}px"` : ''}>${lg ? `<colgroup>${lg.map(w => `<col style="width:${w}px">`).join('')}</colgroup>` : ''}<thead><tr>${cols.map((c, i) => `<th class="${c.n ? 'n' : ''}" onclick="ordina('${id}',${i})">${h(c.t)}${st.c === i ? (st.d > 0 ? ' ▲' : ' ▼') : ''}<span class="rz" title="Trascina per allargare o restringere · doppio clic: larghezze automatiche" onmousedown="iniziaRz(event,${i})" onclick="event.stopPropagation()" ondblclick="event.stopPropagation();azzeraRz('${id}')"></span></th>`).join('')}</tr></thead>
+  return `<div class="tab"><table data-id="${id}" ${lg ? `class="fissa" style="width:${lg.reduce((a, b) => a + b, 0)}px"` : ''}>${lg ? `<colgroup>${lg.map(w => `<col style="width:${w}px">`).join('')}</colgroup>` : ''}<thead><tr>${cols.map((c, i) => `<th class="${c.n ? 'n' : ''}" ${c.tip ? `title="${h(c.tip)}"` : ''} onclick="ordina('${id}',${i})">${tTit(c.t)}${st.c === i ? (st.d > 0 ? ' ▲' : ' ▼') : ''}<span class="rz" title="Trascina per allargare o restringere · doppio clic: larghezze automatiche" onmousedown="iniziaRz(event,${i})" onclick="event.stopPropagation()" ondblclick="event.stopPropagation();azzeraRz('${id}')"></span></th>`).join('')}</tr></thead>
   <tbody>${righe.map((r, i) => `<tr class="${onclick ? 'cl' : ''} ${r._cls || ''}" ${onclick ? `onclick="${onclick}(S.rows_${id}[${i}])"` : ''}>${cols.map(c => `<td class="${c.n ? 'n' : ''} ${c.w ? 'wrap' : ''}">${c.f ? c.f(r) : h(c.v(r))}</td>`).join('')}</tr>`).join('')}</tbody>
   ${piede ? `<tfoot><tr>${piede}</tr></tfoot>` : ''}</table></div>`;
 }
@@ -262,7 +263,7 @@ function stampaHtml(titolo, sotto, corpo) {
 }
 function tabellaStampa(id, righe, piede) {
   const cols = S['cols_' + id]; righe = righe || S['rows_' + id] || [];
-  return `<table><thead><tr>${cols.map(c => `<th class="${c.n ? 'n' : ''}">${h(c.t)}</th>`).join('')}</tr></thead><tbody>${righe.map(r => `<tr>${cols.map(c => `<td class="${c.n ? 'n' : ''}">${c.f ? c.f(r) : h(c.v(r))}</td>`).join('')}</tr>`).join('')}</tbody>${(piede ?? S['piede_' + id]) ? `<tfoot><tr>${piede ?? S['piede_' + id]}</tr></tfoot>` : ''}</table>`;
+  return `<table><thead><tr>${cols.map(c => `<th class="${c.n ? 'n' : ''}">${tTit(c.t)}</th>`).join('')}</tr></thead><tbody>${righe.map(r => `<tr>${cols.map(c => `<td class="${c.n ? 'n' : ''}">${c.f ? c.f(r) : h(c.v(r))}</td>`).join('')}</tr>`).join('')}</tbody>${(piede ?? S['piede_' + id]) ? `<tfoot><tr>${piede ?? S['piede_' + id]}</tr></tfoot>` : ''}</table>`;
 }
 const periodo = (dal, al) => dal && al ? `dal ${data(dal)} al ${data(al)}` : dal ? `dal ${data(dal)}` : al ? `fino al ${data(al)}` : 'tutto il periodo';
 function filtriTesto(pairs) { return pairs.filter(([, v]) => v).map(([k, v]) => `${k}: <b>${h(v)}</b>`).join(' · ') || 'nessun filtro'; }
@@ -354,11 +355,11 @@ function disegnaProc() {
   const righe = filtraProc();
   $('#lista').innerHTML = `<div class="conta">${righe.length} debitori su ${S.elenco.length}</div>` + tabella('proc', [
     {t: 'Protocollo', v: r => r.protocollo}, {t: 'Debitore', v: r => r.debitore, f: r => h(r.debitore) + (r.ruolo === 'familiare' ? ' <span class="tag">DF</span>' : '')},
-    {t: 'Tipo prev.', v: r => r.tipo_preventivo, f: r => tipoTit(r.tipo_preventivo)}, {t: 'Tipo Lexdebita', v: r => r.tipo, f: r => tipoTit(r.tipo)}, {t: 'Stato Lexdebita', v: r => r.lexdebita_stato ? (STATI_LD.indexOf(r.lexdebita_stato) + 1 || 99) : 999, f: r => r.lexdebita_stato ? `<span title="aggiornato ogni lunedì da Lexdebita">${h(r.lexdebita_stato)}</span>` : '<span class="nota">non su Lexdebita</span>'},
-    {t: '% avanzamento', n: 1, v: r => S.avz[r.procedura_id] ? Number(S.avz[r.procedura_id].avanzamento_pct) || 0 : -1, f: r => avzCella(r.procedura_id)},
+    {t: 'Tipo\nipotizzato', tip: 'Procedura ipotizzata nel preventivo', v: r => r.tipo_preventivo, f: r => tipoTit(r.tipo_preventivo)}, {t: 'Tipo\nLexdebita', v: r => r.tipo, f: r => tipoTit(r.tipo)}, {t: 'Stato\nLexdebita', v: r => r.lexdebita_stato ? (STATI_LD.indexOf(r.lexdebita_stato) + 1 || 99) : 999, f: r => r.lexdebita_stato ? `<span title="aggiornato ogni lunedì da Lexdebita">${h(r.lexdebita_stato)}</span>` : '<span class="nota">non su Lexdebita</span>'},
+    {t: '%\navanzamento', n: 1, v: r => S.avz[r.procedura_id] ? Number(S.avz[r.procedura_id].avanzamento_pct) || 0 : -1, f: r => avzCella(r.procedura_id)},
     {t: 'Gestore', v: r => r.gestore, f: r => h(r.gestore) + (r.condivisa ? ' <span class="tag" title="Gruppo dei Volenterosi">S</span>' : '')},
-    {t: 'Domanda', v: r => r.data_domanda, f: r => data(r.data_domanda)}, {t: 'Preventivo', n: 1, v: r => Number(r.preventivo) || 0, f: r => euro(r.preventivo)},
-    {t: 'Advisor', v: r => r.advisor}, {t: 'DGSTAT 25', v: r => r.dgstat_2025}, {t: 'DGSTAT 26', v: r => r.dgstat_2026}], righe, 'apriProcRiga');
+    {t: 'Data\ndomanda', v: r => r.data_domanda, f: r => data(r.data_domanda)}, {t: 'Preventivo', n: 1, v: r => Number(r.preventivo) || 0, f: r => euro(r.preventivo)},
+    {t: 'Advisor', v: r => r.advisor}, {t: 'DGSTAT\n2025', v: r => r.dgstat_2025}, {t: 'DGSTAT\n2026', v: r => r.dgstat_2026}], righe, 'apriProcRiga');
 }
 function esportaProc() { scaricaCSV('procedure_' + oggi() + '.csv', filtraProc().map(({procedura_id, debitore_id, ...r}) => r)); }
 function apriProcRiga(r) { apriProcedura(r.procedura_id); }
