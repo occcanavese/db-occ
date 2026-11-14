@@ -58,6 +58,10 @@ tfoot td{font-weight:600;position:sticky;bottom:0;background:var(--pane)}
 .griglia label.chk{flex-direction:row;align-items:center;gap:6px;color:var(--ink)}
 .azioni{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
 .nota{font-size:12px;color:var(--mute)}
+.mon-g td{font-weight:600}
+.mon-g .fr{display:inline-block;width:14px;color:var(--acc)}
+.mon-p td{background:var(--bg);font-size:13px}
+.mon-p td:first-child{padding-left:30px}
 .avviso{padding:8px 10px;border-radius:6px;background:var(--warnbg);color:var(--warn);font-size:13px;margin:8px 0}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:6px;background:var(--ink);color:var(--bg);display:none;z-index:20;max-width:90%}
 #toast.e{background:var(--err);color:#fff}
@@ -225,7 +229,7 @@ async function entra() {
   if (S.me.cambio_password) return schermataPrimaPassword();
   const vol = S.me.ruolo === 'volenteroso';
   if (vol) S.tab = 'adempimenti';
-  const schede = vol ? [['adempimenti', 'Condivise']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
+  const schede = vol ? [['adempimenti', 'Condivise']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
   $('#app').innerHTML = `<header><h1>Database OCC</h1><nav>${schede.map(([k,t]) => `<button data-t="${k}" onclick="vai('${k}')">${t}</button>`).join('')}</nav>
   <span class="chi">${h(S.me.nome || utente.email)} · <a href="#" onclick="cambiaPassword();return false">cambia password</a> · <a href="#" onclick="esci();return false">esci</a></span></header><main id="main">Caricamento…</main>`;
   try {
@@ -237,7 +241,7 @@ async function entra() {
 function vai(t) {
   S.tab = t; chiudi();
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  ({adempimenti: tabAdempimenti, procedure: tabProcedure, gestori: tabGestori, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
+  ({adempimenti: tabAdempimenti, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
 }
 function apri(tit, html) { $('#dtit').textContent = tit; $('#dcorpo').innerHTML = html; $('#drawer').classList.add('on'); $('#drawer').scrollTop = 0; }
 function chiudi() { $('#drawer').classList.remove('on'); }
@@ -400,7 +404,7 @@ async function apriTappe(pid) {
   const a = S.avz[pid] || {}, per = {}; righe.forEach(r => per[r.tappa_id] = r);
   S.tp = {pid, tappe, per, mon: mon[0] || null};
   const deb = a.debitori || ((S.elenco.find(r => r.procedura_id === pid) || {}).debitore) || '';
-  const prot = (S.elenco.find(r => r.procedura_id === pid) || {}).protocollo || '';
+  const prot = (S.elenco.find(r => r.procedura_id === pid) || {}).protocollo || a.protocollo_lexdebita || '';
   apri(`Avanzamento – ${prot} ${deb}`, `
   <div class="box"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
     <div style="font-size:28px;font-weight:700;color:var(--acc)" id="tpct">${Number(a.avanzamento_pct) || 0}%</div>
@@ -448,7 +452,67 @@ async function confermaVerifica() {
 async function dopoTappe(pid) {
   await caricaAvanzamento();
   if (S.tab === 'procedure' && $('#lista')) disegnaProc();
+  if (S.tab === 'monitoraggio' && $('#lista')) { await caricaMonitoraggio(); disegnaMon(); }
   apriTappe(pid);
+}
+
+// ---------- MONITORAGGIO (v9t): Gestori a cui chiedere l'aggiornamento delle tappe e loro pratiche ----------
+S.monAp = {};
+async function caricaMonitoraggio() {
+  const [r] = await Promise.all([api.list('v_monitoraggio'), caricaAvanzamento()]);
+  const per = {};
+  r.forEach(x => { (per[x.gestore_id] = per[x.gestore_id] || {id: x.gestore_id, gestore: x.gestore, titolo: x.titolo, email: x.email, pec: x.pec, telefono: x.telefono, volenteroso: x.volenteroso, pr: []}).pr.push(x); });
+  S.mon = Object.values(per);
+  S.mon.forEach(g => {
+    g.pr.sort((a, b) => String(a.protocollo_lexdebita).localeCompare(String(b.protocollo_lexdebita), 'it', {numeric: true}));
+    g.n = g.pr.length; g.agg = g.pr.filter(p => p.ultimo_aggiornamento).length; g.ferme = g.pr.filter(p => p.ferma).length;
+    g.doc = g.pr.filter(p => p.tappe_in_attesa > 0).length; g.bl = g.pr.filter(p => p.tappe_bloccate > 0).length;
+    g.media = g.n ? Math.round(somma(g.pr, p => p.avanzamento_pct) / g.n) : 0;
+    g.ultimo = g.pr.map(p => p.ultimo_aggiornamento).filter(Boolean).sort().pop() || null;
+  });
+}
+async function tabMonitoraggio() {
+  $('#main').innerHTML = 'Caricamento…';
+  try { await caricaMonitoraggio(); } catch (e) { $('#main').innerHTML = `<div class="avviso">Vista v_monitoraggio non disponibile: ${h(e.message)}</div>`; return; }
+  $('#main').innerHTML = `<div class="filtri"><label>Cerca (Gestore, debitore, protocollo)<input id="mq" value="${h(S.mq || '')}" size="34"></label>
+   <label>Ordina per<select id="mo">${opt([['gestore', 'Gestore'], ['n', 'N. pratiche'], ['ferme', 'Pratiche ferme'], ['media', 'Avanzamento medio']], S.mo || 'gestore')}</select></label>
+   <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="mf" ${S.mf ? 'checked' : ''}> solo pratiche ferme</label>
+   <button class="b2" onclick="monTutti(true)">Espandi tutti</button><button class="b2" onclick="monTutti(false)">Chiudi tutti</button>
+   <button class="b2" onclick="esportaMon()">Esporta CSV</button></div>
+   <div class="nota" style="margin-bottom:6px">Gestori a cui chiedere l'aggiornamento delle tappe: tutti quelli con almeno una pratica «Assegnata al gestore». Clic sul Gestore per vedere le pratiche; clic sulla pratica per le tappe. Le pratiche in coppia compaiono sotto entrambi i Gestori. «Ferma» = nessun aggiornamento da 4 mesi (o mai).</div>
+   <div id="lista"></div>`;
+  $('#mq').addEventListener('input', disegnaMon); $('#mo').addEventListener('change', disegnaMon); $('#mf').addEventListener('change', disegnaMon);
+  disegnaMon();
+}
+function monFiltro() {
+  S.mq = $('#mq').value.trim().toLowerCase(); S.mo = $('#mo').value; S.mf = $('#mf').checked;
+  const q = S.mq, out = [];
+  for (const g of S.mon) {
+    let pr = g.pr.filter(p => !S.mf || p.ferma);
+    if (q && !g.gestore.toLowerCase().includes(q)) pr = pr.filter(p => [p.debitori, p.protocollo_lexdebita].join(' ').toLowerCase().includes(q));
+    if (pr.length) out.push({g, pr});
+  }
+  const k = S.mo; out.sort((a, b) => k === 'gestore' ? a.g.gestore.localeCompare(b.g.gestore, 'it') : (b.g[k] - a.g[k]) || a.g.gestore.localeCompare(b.g.gestore, 'it'));
+  return out;
+}
+function disegnaMon() {
+  const r = monFiltro(), np = new Set(r.flatMap(x => x.pr.map(p => p.procedura_id))).size;
+  $('#lista').innerHTML = `<div class="conta">${r.length} Gestori · ${np} pratiche da monitorare</div>
+  <div class="tab"><table><thead><tr><th>Gestore / pratica</th><th>Email</th><th class="n">Pratiche</th><th class="n">Aggiornate</th><th class="n">Ferme</th><th class="n">In attesa doc.</th><th class="n">Bloccate</th><th>Avanzamento</th><th>Ultimo aggiornamento</th></tr></thead><tbody>
+  ${r.map(({g, pr}) => { const ap = !!S.monAp[g.id];
+    return `<tr class="cl mon-g" onclick="monApri(${g.id})"><td><span class="fr">${ap ? '▾' : '▸'}</span>${h(g.gestore)}${g.volenteroso ? ' <span class="tag">Volenteroso</span>' : ''}</td>
+    <td>${h(g.email || '')}${g.email ? '' : ' <span class="tag w">manca</span>'}</td><td class="n">${pr.length}</td><td class="n">${g.agg}</td><td class="n">${g.ferme ? `<span class="tag w">${g.ferme}</span>` : 0}</td>
+    <td class="n">${g.doc}</td><td class="n">${g.bl}</td><td>${g.media}% <span class="nota">medio</span></td><td>${g.ultimo ? data(g.ultimo) : '<span class="nota">mai</span>'}</td></tr>`
+    + (ap ? pr.map(p => `<tr class="cl mon-p" onclick="apriTappe(${p.procedura_id})" title="Clic per le tappe"><td>${h(p.protocollo_lexdebita)} · ${h(p.debitori || '')}${p.condivisa ? ' <span class="tag">condivisa</span>' : ''}${p.quota < 100 ? ` <span class="tag" title="${h(p.gestori_pratica)}">in coppia</span>` : ''}</td>
+      <td class="nota">${h(p.tipo || '')}${p.nominato_il ? ' · nominato il ' + data(p.nominato_il) : ''}</td><td></td><td></td><td class="n">${p.ferma ? '<span class="tag w">ferma</span>' : ''}</td>
+      <td class="n">${p.tappe_in_attesa ? `<span class="tag w">da ${p.giorni_attesa_documenti} gg</span>` : ''}</td><td class="n">${p.tappe_bloccate || ''}</td><td>${avzCella(p.procedura_id)}</td><td>${p.ultimo_aggiornamento ? data(p.ultimo_aggiornamento) : '<span class="nota">mai</span>'}</td></tr>`).join('') : ''); }).join('')}
+  </tbody></table></div>`;
+}
+function monApri(id) { S.monAp[id] = !S.monAp[id]; disegnaMon(); }
+function monTutti(on) { S.monAp = {}; if (on) S.mon.forEach(g => S.monAp[g.id] = true); disegnaMon(); }
+function esportaMon() {
+  scaricaCSV('monitoraggio_' + oggi() + '.csv', monFiltro().flatMap(({g, pr}) => pr.map(p => ({gestore: g.gestore, email: g.email, pec: g.pec, protocollo: p.protocollo_lexdebita, debitori: p.debitori, tipo: p.tipo,
+    in_coppia: p.quota < 100 ? 'sì' : '', condivisa: p.condivisa ? 'sì' : '', avanzamento_pct: p.avanzamento_pct, ferma: p.ferma ? 'sì' : '', in_attesa_documenti: p.tappe_in_attesa ? 'sì' : '', ultimo_aggiornamento: data(p.ultimo_aggiornamento)}))));
 }
 
 async function apriProcedura(id) {
