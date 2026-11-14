@@ -136,7 +136,7 @@ const somma = (a, f) => a.reduce((s, x) => s + (Number(f(x)) || 0), 0);
 const $ = s => document.querySelector(s);
 function toast(t, err) { const e = $('#toast'); e.textContent = t; e.className = err ? 'e' : ''; e.style.display = 'block'; clearTimeout(e._t); e._t = setTimeout(() => e.style.display = 'none', err ? 7000 : 3000); }
 const nomeG = id => { const g = S.gestori.find(x => x.id === id); return g ? g.cognome + ' ' + g.nome : ''; };
-const optG = (sel, vuoto = '—') => `<option value="">${vuoto}</option>` + S.gestori.map(g => `<option value="${g.id}" ${g.id == sel ? 'selected' : ''}>${h(g.cognome + ' ' + g.nome)}</option>`).join('');
+const optG = (sel, vuoto = '—') => `<option value="">${vuoto}</option>` + S.gestori.filter(g => !g.solo_ausiliario || g.id == sel).map(g => `<option value="${g.id}" ${g.id == sel ? 'selected' : ''}>${h(g.cognome + ' ' + g.nome)}</option>`).join('');   // le sole ausiliarie (v9zg) non si nominano
 const opt = (arr, sel, vuoto) => (vuoto != null ? `<option value="">${vuoto}</option>` : '') + arr.map(a => { const [v, t] = Array.isArray(a) ? a : [a, a]; return `<option value="${h(v)}" ${String(v) === String(sel ?? '') ? 'selected' : ''}>${h(t)}</option>`; }).join('');
 function scaricaCSV(nome, righe) {
   if (!righe.length) return toast('Niente da esportare');
@@ -227,9 +227,10 @@ async function entra() {
   S.me = {ruolo: 'admin'};
   try { const r = await api.list('utenti_app'); if (r && r[0]) S.me = r[0]; } catch (e) {}
   if (S.me.cambio_password) return schermataPrimaPassword();
-  const vol = S.me.ruolo === 'volenteroso';
+  const vol = S.me.ruolo === 'volenteroso', gest = S.me.ruolo === 'gestore';
   if (vol) S.tab = 'adempimenti';
-  const schede = vol ? [['adempimenti', 'Condivise']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
+  if (gest) S.tab = 'mie';
+  const schede = gest ? [['mie', 'Le mie pratiche']] : vol ? [['adempimenti', 'Condivise'], ['mie', 'Le mie pratiche']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
   $('#app').innerHTML = `<header><h1>Database OCC</h1><nav>${schede.map(([k,t]) => `<button data-t="${k}" onclick="vai('${k}')">${t}</button>`).join('')}</nav>
   <span class="chi">${h(S.me.nome || utente.email)} · <a href="#" onclick="cambiaPassword();return false">cambia password</a> · <a href="#" onclick="esci();return false">esci</a></span></header><main id="main">Caricamento…</main>`;
   try {
@@ -241,7 +242,7 @@ async function entra() {
 function vai(t) {
   S.tab = t; chiudi();
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  ({adempimenti: tabAdempimenti, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
+  ({adempimenti: tabAdempimenti, mie: tabMie, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
 }
 function apri(tit, html) { $('#dtit').textContent = tit; $('#dcorpo').innerHTML = html; $('#drawer').classList.add('on'); $('#drawer').scrollTop = 0; }
 function chiudi() { $('#drawer').classList.remove('on'); }
@@ -425,7 +426,7 @@ async function apriTappe(pid) {
   <label style="display:block;margin-top:10px;font-size:12px;color:var(--mute)">Nota sulla pratica<textarea id="tnota" class="nota-tappa" style="min-height:60px;max-height:260px" oninput="allunga(this)">${h((S.tp.mon || {}).nota || '')}</textarea></label>
   <div class="azioni"><button class="b" onclick="salva(salvaTappe,this)">Salva le tappe</button>
   <button class="b2" onclick="salva(confermaVerifica,this)" title="Registra che la pratica è stata verificata oggi anche se nessuna tappa è cambiata">Verificata, nessuna novità</button>
-  <button class="b2" onclick="apriProcedura(${pid})">Scheda della procedura</button></div></div>`);
+  ${S.me && (S.me.ruolo === 'admin' || S.me.ruolo === 'lettura') ? `<button class="b2" onclick="apriProcedura(${pid})">Scheda della procedura</button>` : ''}</div></div>`);
   document.querySelectorAll('#dcorpo textarea.nota-tappa').forEach(allunga);
 }
 async function salvaTappe() {
@@ -453,8 +454,35 @@ async function dopoTappe(pid) {
   await caricaAvanzamento();
   if (S.tab === 'procedure' && $('#lista')) disegnaProc();
   if (S.tab === 'monitoraggio' && $('#lista')) { await caricaMonitoraggio(); disegnaMon(); }
+  if (S.tab === 'mie' && $('#lista')) { S.mie = await api.list('v_mie_pratiche'); disegnaMie(); }
   apriTappe(pid);
 }
+
+// ---------- LE MIE PRATICHE (v9zg): monitoraggio delle pratiche di cui l'utente è Gestore (o ausiliario, per D'ORSI) ----------
+async function tabMie() {
+  $('#main').innerHTML = 'Caricamento…';
+  try { const [r] = await Promise.all([api.list('v_mie_pratiche'), caricaAvanzamento()]); S.mie = r; }
+  catch (e) { $('#main').innerHTML = `<div class="avviso">Vista v_mie_pratiche non disponibile: ${h(e.message)}</div>`; return; }
+  $('#main').innerHTML = `<div class="filtri"><label>Cerca (debitore, protocollo)<input id="pq" value="${h(S.pq || '')}" size="30"></label>
+   <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pf" ${S.pf ? 'checked' : ''}> solo da aggiornare (ferme)</label></div>
+   <div class="nota" style="margin-bottom:6px">Le pratiche di cui risulta Gestore all'OCC. Clic sulla percentuale (o sulla riga) per aggiornare le tappe; se nulla è cambiato, nella finestra c'è «Verificata, nessuna novità». Se una pratica manca o non è più Sua, lo segnali all'OCC rispondendo alla mail di richiesta.</div>
+   <div id="lista"></div>`;
+  $('#pq').addEventListener('input', disegnaMie); $('#pf').addEventListener('change', disegnaMie);
+  disegnaMie();
+}
+function disegnaMie() {
+  S.pq = $('#pq').value.trim().toLowerCase(); S.pf = $('#pf').checked;
+  const r = S.mie.filter(p => (!S.pq || [p.debitori, p.protocollo_lexdebita].join(' ').toLowerCase().includes(S.pq)) && (!S.pf || p.ferma));
+  $('#lista').innerHTML = `<div class="conta">${r.length} pratiche</div>` + tabella('mie', [
+    {t: 'Protocollo', v: p => p.protocollo_lexdebita},
+    {t: 'Debitore', v: p => p.debitori, w: 1},
+    {t: 'Tipo', v: p => p.tipo},
+    {t: 'Gestore', v: p => p.gestore, f: p => h(p.gestore || '') + (String(p.gestore || '').includes(' + ') ? ' <span class="tag">in coppia</span>' : '')},
+    {t: '% avanzamento', v: p => Number(p.avanzamento_pct) || 0, f: p => avzCella(p.procedura_id)},
+    {t: 'In attesa doc.', v: p => p.giorni_attesa_documenti ?? -1, f: p => p.tappe_in_attesa ? `<span class="tag w">da ${p.giorni_attesa_documenti} gg</span>` : ''},
+    {t: 'Ultimo aggiornamento', v: p => p.ultimo_aggiornamento || '', f: p => p.ultimo_aggiornamento ? data(p.ultimo_aggiornamento) + (p.ferma ? ' <span class="tag w">da aggiornare</span>' : '') : '<span class="tag w">mai</span>'}], r, 'apriMiaRiga');
+}
+function apriMiaRiga(p) { apriTappe(p.procedura_id); }
 
 // ---------- MONITORAGGIO (v9t): Gestori a cui chiedere l'aggiornamento delle tappe e loro pratiche ----------
 S.monAp = {};
