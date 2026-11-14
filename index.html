@@ -75,6 +75,12 @@ tfoot td{font-weight:600;position:sticky;bottom:0;background:var(--pane)}
 .st.s-nonnec{background:var(--line);color:var(--mute)}
 .st.s-doc{background:#fff3b0;color:#7a5d00;border-color:#c9a400}
 .st.s-sosp{background:var(--errbg);color:var(--err);border-color:var(--err)}
+.avz{display:inline-flex;align-items:center;gap:5px;cursor:pointer;margin-left:6px;padding:0 4px;border-radius:5px;vertical-align:middle}
+.avz:hover{outline:2px solid var(--acc)}
+.avz .bar{display:inline-block;width:46px;height:7px;border-radius:4px;background:var(--line);overflow:hidden}
+.avz .bar i{display:block;height:100%;background:var(--acc)}
+.avz b{font-size:12px;font-variant-numeric:tabular-nums;min-width:30px}
+.avz.ferma b{color:var(--warn)}
 .legenda{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin:4px 2px 8px}
 #stampa{display:none}
 @media print{
@@ -112,7 +118,7 @@ const TIPI_DESCR = {LP: 'Liquidazione controllata (ex Liquidazione del patrimoni
 const tipoTit = t => t ? `<span title="${h(TIPI_DESCR[t] || t)}" style="cursor:help;border-bottom:1px dotted">${h(t)}</span>` : '';
 const STATI_BON = ['proposto','sospeso','fatto','annullato'];
 let sb = null, api = null, utente = null;
-const S = {gestori: [], codici: [], elenco: [], tab: 'procedure'};
+const S = {gestori: [], codici: [], elenco: [], avz: {}, tab: 'procedure'};
 
 // ---------- utilità ----------
 const h = v => v == null ? '' : String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -318,7 +324,7 @@ async function salva(fn, btn) { if (btn) btn.disabled = true; try { await fn(); 
 // ---------- PROCEDURE ----------
 async function tabProcedure() {
   $('#main').innerHTML = 'Caricamento…';
-  S.elenco = await api.list('v_elenco_procedure');
+  [S.elenco] = await Promise.all([api.list('v_elenco_procedure'), caricaAvanzamento()]);
   const anni = [...new Set(S.elenco.map(r => r.protocollo.slice(0, 4)))].sort().reverse();
   const f = S.fp || (S.fp = {});
   $('#main').innerHTML = `<div class="filtri">
@@ -346,13 +352,96 @@ function disegnaProc() {
   const righe = filtraProc();
   $('#lista').innerHTML = `<div class="conta">${righe.length} debitori su ${S.elenco.length}</div>` + tabella('proc', [
     {t: 'Protocollo', v: r => r.protocollo}, {t: 'Debitore', v: r => r.debitore, f: r => h(r.debitore) + (r.ruolo === 'familiare' ? ' <span class="tag">DF</span>' : '')},
-    {t: 'Tipo prev.', v: r => r.tipo_preventivo, f: r => tipoTit(r.tipo_preventivo)}, {t: 'Tipo Lexdebita', v: r => r.tipo, f: r => tipoTit(r.tipo)}, {t: 'Fase', v: r => FASI.indexOf(r.fase), f: r => h(r.fase) + (r.fase_stimata ? ' <span class="tag w" title="ricavata in automatico, da verificare">?</span>' : '')},
+    {t: 'Tipo prev.', v: r => r.tipo_preventivo, f: r => tipoTit(r.tipo_preventivo)}, {t: 'Tipo Lexdebita', v: r => r.tipo, f: r => tipoTit(r.tipo)}, {t: 'Fase', v: r => FASI.indexOf(r.fase) * 1000 + (S.avz[r.procedura_id] ? S.avz[r.procedura_id].avanzamento_pct : -1), f: r => h(r.fase) + (r.fase_stimata ? ' <span class="tag w" title="ricavata in automatico, da verificare">?</span>' : '') + avzCella(r.procedura_id)},
     {t: 'Gestore', v: r => r.gestore, f: r => h(r.gestore) + (r.condivisa ? ' <span class="tag" title="Gruppo dei Volenterosi">S</span>' : '')},
     {t: 'Domanda', v: r => r.data_domanda, f: r => data(r.data_domanda)}, {t: 'Preventivo', n: 1, v: r => Number(r.preventivo) || 0, f: r => euro(r.preventivo)},
     {t: 'Advisor', v: r => r.advisor}, {t: 'DGSTAT 25', v: r => r.dgstat_2025}, {t: 'DGSTAT 26', v: r => r.dgstat_2026}], righe, 'apriProcRiga');
 }
 function esportaProc() { scaricaCSV('procedure_' + oggi() + '.csv', filtraProc().map(({procedura_id, debitore_id, ...r}) => r)); }
 function apriProcRiga(r) { apriProcedura(r.procedura_id); }
+
+// ---------- AVANZAMENTO DELL'ISTRUTTORIA (tappe del Gestore, v9l–v9n) ----------
+const STATI_TAPPA = ['da fare', 'in corso', 'in attesa documenti', 'fatto', 'non necessario', 'bloccato'];
+async function caricaAvanzamento() {
+  S.avz = {};
+  try { (await api.list('v_avanzamento_procedure')).forEach(a => S.avz[a.procedura_id] = a); } catch (e) { console.warn('avanzamento non disponibile', e); }
+}
+function avzCella(pid) {
+  const a = S.avz && S.avz[pid]; if (!a) return '';
+  const p = Number(a.avanzamento_pct) || 0;
+  const tit = `Avanzamento dell'istruttoria: ${p}% · ${a.tappe_fatte} tappe fatte su ${a.tappe_totali}` + (a.tappe_in_attesa ? ` · in attesa documenti da ${a.giorni_attesa_documenti} giorni` : '') + (a.tappe_bloccate ? ` · ${a.tappe_bloccate} bloccate` : '')
+    + (a.ultimo_aggiornamento ? ` · ultimo aggiornamento ${data(a.ultimo_aggiornamento)}` : ' · mai aggiornata') + (a.ferma ? ' · FERMA (nessun aggiornamento da 4 mesi)' : '') + ' – clic per le tappe';
+  return ` <span class="avz ${a.ferma ? 'ferma' : ''}" title="${h(tit)}" onclick="event.stopPropagation();apriTappe(${pid})"><span class="bar"><i style="width:${p}%"></i></span><b>${p}%</b>${a.tappe_in_attesa ? '<span class="st s-doc" style="min-width:0">D</span>' : ''}${a.tappe_bloccate ? '<span class="st s-sosp" style="min-width:0">B</span>' : ''}</span>`;
+}
+function pctTappe() {          // stessa regola della vista: fatto e non necessario contano pieni, in corso a metà
+  let fatto = 0, tot = 0;
+  S.tp.tappe.forEach(t => { const st = $('#tst' + t.id).value, w = Number(t.peso); tot += w; if (st === 'fatto' || st === 'non necessario') fatto += w; else if (st === 'in corso') fatto += w / 2; });
+  return tot ? Math.round(100 * fatto / tot) : 0;
+}
+function cambiaStatoTappa(id) {
+  const st = $('#tst' + id).value, d = $('#tdt' + id);
+  d.style.visibility = (st === 'fatto' || st === 'in attesa documenti') ? 'visible' : 'hidden';
+  d.title = st === 'in attesa documenti' ? 'data della richiesta dei documenti al debitore' : 'data in cui la tappa è stata completata';
+  if (d.style.visibility === 'visible' && !d.value) d.value = oggi();
+  $('#tpct').textContent = pctTappe() + '%';
+}
+async function apriTappe(pid) {
+  apri('Avanzamento…', 'Caricamento…');
+  const [tappe, righe, mon] = await Promise.all([
+    api.list('tappe_istruttoria', {f: [['eq', 'attivo', true]], order: [['ordine']]}),
+    api.list('procedure_tappe', {f: [['eq', 'procedura_id', pid]]}),
+    api.list('procedure_monitoraggio', {f: [['eq', 'procedura_id', pid]]})]);
+  const a = S.avz[pid] || {}, per = {}; righe.forEach(r => per[r.tappa_id] = r);
+  S.tp = {pid, tappe, per, mon: mon[0] || null};
+  const deb = a.debitori || ((S.elenco.find(r => r.procedura_id === pid) || {}).debitore) || '';
+  const prot = (S.elenco.find(r => r.procedura_id === pid) || {}).protocollo || '';
+  apri(`Avanzamento – ${prot} ${deb}`, `
+  <div class="box"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div style="font-size:28px;font-weight:700;color:var(--acc)" id="tpct">${Number(a.avanzamento_pct) || 0}%</div>
+    <div class="nota">Gestore: <b>${h(a.gestore || '—')}</b>${a.nominato_il && a.nominato_il > '2005' ? ' (dal ' + data(a.nominato_il) + ')' : ''}<br>
+    Ultimo aggiornamento: <b>${a.ultimo_aggiornamento ? data(a.ultimo_aggiornamento) : 'mai'}</b>${a.ferma ? ' <span class="tag w">ferma: nessun aggiornamento da 4 mesi</span>' : ''}
+    ${a.tappe_in_attesa ? `<br><span class="tag w">in attesa documenti dal ${data(a.attesa_documenti_dal)} (${a.giorni_attesa_documenti} giorni)</span>` : ''}</div></div>
+    <div class="nota" style="margin-top:6px">Percentuale: tappe «fatto» e «non necessario» per intero, «in corso» a metà; «in attesa documenti» e «bloccato» non contano finché non si sbloccano. Totale pesi 100.</div></div>
+  <div class="box" id="ftappe"><h3>Tappe</h3>
+  <table><thead><tr><th>Tappa</th><th class="n">Peso</th><th>Stato</th><th>Data</th><th>Nota</th></tr></thead><tbody>
+  ${tappe.map(t => { const r = per[t.id] || {}, st = r.stato || 'da fare', dt = st === 'in attesa documenti' ? r.data_richiesta : r.data_fatto, vis = st === 'fatto' || st === 'in attesa documenti';
+    return `<tr><td class="wrap" style="min-width:180px"><b>${h(t.nome)}</b><br><span class="nota">fatta quando: ${h(t.quando_fatta || '')}</span>${r.aggiornato_il ? `<br><span class="nota">agg. ${data(r.aggiornato_il)} ${h(r.aggiornato_da || '')}</span>` : ''}</td>
+    <td class="n">${Number(t.peso)}</td>
+    <td><select id="tst${t.id}" onchange="cambiaStatoTappa(${t.id})">${opt(STATI_TAPPA, st)}</select></td>
+    <td><input type="date" id="tdt${t.id}" value="${h(dt || '')}" style="visibility:${vis ? 'visible' : 'hidden'}" title="${st === 'in attesa documenti' ? 'data della richiesta dei documenti al debitore' : 'data in cui la tappa è stata completata'}"></td>
+    <td style="min-width:170px"><input id="tno${t.id}" style="width:100%" value="${h(r.note || '')}" placeholder="${st === 'bloccato' ? 'motivo del blocco' : ''}"></td></tr>`; }).join('')}
+  </tbody></table>
+  <label style="display:block;margin-top:10px;font-size:12px;color:var(--mute)">Nota sulla pratica<textarea id="tnota">${h((S.tp.mon || {}).nota || '')}</textarea></label>
+  <div class="azioni"><button class="b" onclick="salva(salvaTappe,this)">Salva le tappe</button>
+  <button class="b2" onclick="salva(confermaVerifica,this)" title="Registra che la pratica è stata verificata oggi anche se nessuna tappa è cambiata">Verificata, nessuna novità</button>
+  <button class="b2" onclick="apriProcedura(${pid})">Scheda della procedura</button></div></div>`);
+}
+async function salvaTappe() {
+  const {pid, tappe, per} = S.tp, daScrivere = []; let n = 0;
+  for (const t of tappe) {         // prima tutti i controlli, poi le scritture
+    const r = per[t.id] || {}, st = $('#tst' + t.id).value, d = $('#tdt' + t.id).value || null, note = $('#tno' + t.id).value.trim() || null;
+    const nuovo = {stato: st, data_fatto: st === 'fatto' ? d : (r.data_fatto || null), data_richiesta: st === 'in attesa documenti' ? d : (r.data_richiesta || null), note};
+    if (st === 'fatto' && !d) throw new Error(`«${t.nome}»: per «fatto» serve la data`);
+    if (st === 'in attesa documenti' && !d) throw new Error(`«${t.nome}»: serve la data della richiesta dei documenti`);
+    const vecchio = {stato: r.stato || 'da fare', data_fatto: r.data_fatto || null, data_richiesta: r.data_richiesta || null, note: r.note || null};
+    if (JSON.stringify(nuovo) !== JSON.stringify(vecchio)) daScrivere.push({procedura_id: pid, tappa_id: t.id, ...nuovo});
+  }
+  for (const riga of daScrivere) { await api.upsert('procedure_tappe', riga, 'procedura_id,tappa_id'); n++; }
+  const nota = $('#tnota').value.trim() || null;
+  if (nota !== ((S.tp.mon || {}).nota || null)) { await api.upsert('procedure_monitoraggio', {procedura_id: pid, nota}, 'procedura_id'); n++; }
+  if (!n) return toast('Nessuna modifica (se la pratica è ferma ma verificata, usa «Verificata, nessuna novità»)');
+  toast('Avanzamento salvato'); await dopoTappe(pid);
+}
+async function confermaVerifica() {
+  const {pid} = S.tp;
+  await api.upsert('procedure_monitoraggio', {procedura_id: pid, nota: (S.tp.mon || {}).nota || null, aggiornato_il: new Date().toISOString()}, 'procedura_id');
+  toast('Verifica registrata con la data di oggi'); await dopoTappe(pid);
+}
+async function dopoTappe(pid) {
+  await caricaAvanzamento();
+  if (S.tab === 'procedure' && $('#lista')) disegnaProc();
+  apriTappe(pid);
+}
 
 async function apriProcedura(id) {
   apri('Procedura…', 'Caricamento…');
@@ -389,6 +478,8 @@ async function apriProcedura(id) {
     ${area('note', 'Note', p.note)}
   </div><div class="azioni"><button class="b" onclick="salva(salvaProc,this)">Salva procedura</button>
   ${p.lexdebita_stato ? `<span class="nota">Lexdebita: ${h(p.lexdebita_tipo || '')} · ${h(p.lexdebita_stato)} · DGSTAT ${h(p.lexdebita_dgstat || '')} (letto il ${data(p.lexdebita_letto_il)})</span>` : ''}</div></div>
+
+  ${S.avz && S.avz[id] ? `<div class="box"><h3>Avanzamento dell'istruttoria</h3>${avzCella(id)} <button class="b2" style="margin-left:10px" onclick="apriTappe(${id})">Gestisci le tappe</button></div>` : ''}
 
   <div class="box"><h3>Debitori</h3>${deb.map(d => `<div id="deb${d.id}" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><div class="griglia">
     ${campo('cognome', 'Cognome', d.cognome)}${campo('nome', 'Nome', d.nome)}${campo('codice_fiscale', 'Codice fiscale', d.codice_fiscale)}
