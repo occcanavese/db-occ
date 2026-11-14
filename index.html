@@ -77,6 +77,7 @@ tfoot td{font-weight:600;position:sticky;bottom:0;background:var(--pane)}
 .st.s-sosp{background:var(--errbg);color:var(--err);border-color:var(--err)}
 .avz{display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:0 4px;border-radius:5px;vertical-align:middle}
 .avz:hover{outline:2px solid var(--acc)}
+textarea.nota-tappa{width:100%;min-height:32px;max-height:150px;overflow-y:auto;resize:vertical;line-height:1.35;font-size:13px}
 .avz .bar{display:inline-block;width:46px;height:7px;border-radius:4px;background:var(--line);overflow:hidden}
 .avz .bar i{display:block;height:100%;background:var(--acc)}
 .avz b{font-size:12px;font-variant-numeric:tabular-nums;min-width:30px}
@@ -379,6 +380,8 @@ function pctTappe() {          // stessa regola della vista: fatto e non necessa
   S.tp.tappe.forEach(t => { const st = $('#tst' + t.id).value, w = Number(t.peso); tot += w; if (st === 'fatto' || st === 'non necessario') fatto += w; else if (st === 'in corso') fatto += w / 2; });
   return tot ? Math.round(100 * fatto / tot) : 0;
 }
+// note su più righe: la casella si allunga con il testo fino a un massimo, poi compare la barra di scorrimento
+function allunga(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight + 2, parseInt(getComputedStyle(el).maxHeight) || 9999) + 'px'; }
 function cambiaStatoTappa(id) {
   const st = $('#tst' + id).value, d = $('#tdt' + id);
   d.style.visibility = (st === 'fatto' || st === 'in attesa documenti') ? 'visible' : 'hidden';
@@ -404,18 +407,20 @@ async function apriTappe(pid) {
     ${a.tappe_in_attesa ? `<br><span class="tag w">in attesa documenti dal ${data(a.attesa_documenti_dal)} (${a.giorni_attesa_documenti} giorni)</span>` : ''}</div></div>
     <div class="nota" style="margin-top:6px">Percentuale: tappe «fatto» e «non necessario» per intero, «in corso» a metà; «in attesa documenti» e «bloccato» non contano finché non si sbloccano. Totale pesi 100.</div></div>
   <div class="box" id="ftappe"><h3>Tappe</h3>
-  <table><thead><tr><th>Tappa</th><th class="n">Peso</th><th>Stato</th><th>Data</th><th>Nota</th></tr></thead><tbody>
+  <table style="table-layout:fixed"><colgroup><col style="width:30%"><col style="width:46px"><col style="width:150px"><col style="width:132px"><col></colgroup>
+  <thead><tr><th>Tappa</th><th class="n">Peso</th><th>Stato</th><th>Data</th><th>Nota</th></tr></thead><tbody>
   ${tappe.map(t => { const r = per[t.id] || {}, st = r.stato || 'da fare', dt = st === 'in attesa documenti' ? r.data_richiesta : r.data_fatto, vis = st === 'fatto' || st === 'in attesa documenti';
-    return `<tr><td class="wrap" style="min-width:180px"><b>${h(t.nome)}</b><br><span class="nota">fatta quando: ${h(t.quando_fatta || '')}</span>${r.aggiornato_il ? `<br><span class="nota">agg. ${data(r.aggiornato_il)} ${h(r.aggiornato_da || '')}</span>` : ''}</td>
+    return `<tr><td class="wrap" style="min-width:0"><b>${h(t.nome)}</b><br><span class="nota">fatta quando: ${h(t.quando_fatta || '')}</span>${r.aggiornato_il ? `<br><span class="nota">agg. ${data(r.aggiornato_il)} ${h(r.aggiornato_da || '')}</span>` : ''}</td>
     <td class="n">${Number(t.peso)}</td>
-    <td><select id="tst${t.id}" onchange="cambiaStatoTappa(${t.id})">${opt(STATI_TAPPA, st)}</select></td>
-    <td><input type="date" id="tdt${t.id}" value="${h(dt || '')}" style="visibility:${vis ? 'visible' : 'hidden'}" title="${st === 'in attesa documenti' ? 'data della richiesta dei documenti al debitore' : 'data in cui la tappa è stata completata'}"></td>
-    <td style="min-width:170px"><input id="tno${t.id}" style="width:100%" value="${h(r.note || '')}" placeholder="${st === 'bloccato' ? 'motivo del blocco' : ''}"></td></tr>`; }).join('')}
+    <td><select style="width:100%" id="tst${t.id}" onchange="cambiaStatoTappa(${t.id})">${opt(STATI_TAPPA, st)}</select></td>
+    <td><input type="date" id="tdt${t.id}" value="${h(dt || '')}" style="width:100%;visibility:${vis ? 'visible' : 'hidden'}" title="${st === 'in attesa documenti' ? 'data della richiesta dei documenti al debitore' : 'data in cui la tappa è stata completata'}"></td>
+    <td style="white-space:normal"><textarea id="tno${t.id}" class="nota-tappa" rows="1" oninput="allunga(this)" placeholder="${st === 'bloccato' ? 'motivo del blocco' : ''}">${h(r.note || '')}</textarea></td></tr>`; }).join('')}
   </tbody></table>
-  <label style="display:block;margin-top:10px;font-size:12px;color:var(--mute)">Nota sulla pratica<textarea id="tnota">${h((S.tp.mon || {}).nota || '')}</textarea></label>
+  <label style="display:block;margin-top:10px;font-size:12px;color:var(--mute)">Nota sulla pratica<textarea id="tnota" class="nota-tappa" style="min-height:60px;max-height:260px" oninput="allunga(this)">${h((S.tp.mon || {}).nota || '')}</textarea></label>
   <div class="azioni"><button class="b" onclick="salva(salvaTappe,this)">Salva le tappe</button>
   <button class="b2" onclick="salva(confermaVerifica,this)" title="Registra che la pratica è stata verificata oggi anche se nessuna tappa è cambiata">Verificata, nessuna novità</button>
   <button class="b2" onclick="apriProcedura(${pid})">Scheda della procedura</button></div></div>`);
+  document.querySelectorAll('#dcorpo textarea.nota-tappa').forEach(allunga);
 }
 async function salvaTappe() {
   const {pid, tappe, per} = S.tp, daScrivere = []; let n = 0;
