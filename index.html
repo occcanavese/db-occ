@@ -472,7 +472,9 @@ async function dopoTappe(pid) {
 // ---------- LE MIE PRATICHE (v9zg): monitoraggio delle pratiche di cui l'utente è Gestore (o ausiliario, per D'ORSI) ----------
 async function tabMie() {
   $('#main').innerHTML = 'Caricamento…';
-  try { const [r] = await Promise.all([api.list('v_mie_pratiche'), caricaAvanzamento()]); S.mie = r; }
+  try { const [r, inc] = await Promise.all([api.list('v_mie_pratiche'), api.list('v_mie_incassi', {order: [['data_contabile', false]]}).catch(e => (console.warn('incassi non disponibili', e), null)), caricaAvanzamento()]); S.mie = r;
+    // v28: quanto ha già versato il debitore (solo data e importo, vista v_mie_incassi)
+    S.mieInc = null; if (inc) { S.mieInc = {}; inc.forEach(i => (S.mieInc[i.procedura_id] = S.mieInc[i.procedura_id] || []).push(i)); } }
   catch (e) { $('#main').innerHTML = `<div class="avviso">Vista v_mie_pratiche non disponibile: ${h(e.message)}</div>`; return; }
   let ante = '';
   if (S.me.ruolo === 'anteprima') {   // v25: Giampaolo vede «Le mie pratiche» come un Gestore a scelta, in sola lettura
@@ -495,12 +497,21 @@ function disegnaMie() {
     {t: 'Debitore', v: p => p.debitori, w: 1},
     {t: 'Tipo', v: p => p.tipo},
     {t: 'Gestore', v: p => p.gestore, f: p => h(p.gestore || '') + (String(p.gestore || '').includes(' + ') ? ' <span class="tag">in coppia</span>' : '')},
+    ...(S.mieInc ? [{t: 'Versato €', n: 1, tip: 'Totale dei bonifici del debitore incassati dall\'OCC; clic sull\'importo per l\'elenco', v: p => somma(S.mieInc[p.procedura_id] || [], i => i.importo),
+      f: p => { const l = S.mieInc[p.procedura_id] || []; return l.length ? `<a href="#" onclick="event.stopPropagation();apriVersato(${p.procedura_id});return false" title="Vedi i versamenti">${euro(somma(l, i => i.importo))}</a> <span class="nota">(${l.length})</span>` : '<span class="nota">—</span>'; }}] : []),
     {t: '% avanzamento', v: p => Number(p.avanzamento_pct) || 0, f: p => avzCella(p.procedura_id)},
     {t: 'In attesa doc.', v: p => p.giorni_attesa_documenti ?? -1, f: p => p.tappe_in_attesa ? `<span class="tag w">da ${p.giorni_attesa_documenti} gg</span>` : ''},
     {t: 'Ultimo aggiornamento', v: p => p.ultimo_aggiornamento || '', f: p => p.ultimo_aggiornamento ? data(p.ultimo_aggiornamento) + (p.ferma ? ' <span class="tag w">da aggiornare</span>' : '') : '<span class="tag w">mai</span>'}], r, 'apriMiaRiga');
 }
 S.ridisegna_mie = () => disegnaMie();
 function apriMiaRiga(p) { apriTappe(p.procedura_id); }
+function apriVersato(pid) {
+  const p = S.mie.find(x => x.procedura_id === pid) || {}, l = [...(S.mieInc[pid] || [])].sort((a, b) => b.data_contabile.localeCompare(a.data_contabile));
+  apri(`Versamenti – ${p.protocollo_lexdebita || ''} ${p.debitori || ''}`, `<div class="box"><h3>Bonifici incassati dall'OCC (${l.length})</h3>
+   <table><thead><tr><th>Data</th><th class="n">Importo €</th></tr></thead><tbody>${l.map(i => `<tr><td>${data(i.data_contabile)}</td><td class="n">${euro(i.importo)}</td></tr>`).join('')}</tbody>
+   <tfoot><tr><td>Totale versato</td><td class="n">${euro(somma(l, i => i.importo))}</td></tr></tfoot></table>
+   <p class="nota">Importi lordi (IVA compresa) dall'estratto conto dell'OCC, aggiornati ogni settimana. Per dubbi scrivere a occ@modellocanavese.it.</p></div>`);
+}
 async function scegliAnteprima(gid) { if (!gid) return; try { await api.rpc('anteprima_scegli', {gid: Number(gid)}); } catch (e) { return toast('Errore: ' + e.message); } S.pq = ''; S.pf = false; entra(); }
 
 // ---------- MONITORAGGIO (v9t): Gestori a cui chiedere l'aggiornamento delle tappe e loro pratiche ----------
