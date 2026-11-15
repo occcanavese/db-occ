@@ -227,7 +227,7 @@ async function entra() {
   S.me = {ruolo: 'admin'};
   try { const r = await api.list('utenti_app'); if (r && r[0]) S.me = r[0]; } catch (e) {}
   if (S.me.cambio_password) return schermataPrimaPassword();
-  const vol = S.me.ruolo === 'volenteroso', gest = S.me.ruolo === 'gestore';
+  const vol = S.me.ruolo === 'volenteroso', ante = S.me.ruolo === 'anteprima', gest = S.me.ruolo === 'gestore' || ante;
   if (vol) S.tab = 'adempimenti';
   if (gest) S.tab = 'mie';
   const schede = gest ? [['mie', 'Le mie pratiche']] : vol ? [['adempimenti', 'Condivise'], ['mie', 'Le mie pratiche']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
@@ -235,7 +235,7 @@ async function entra() {
   <span class="chi">${h(S.me.nome || utente.email)} · <a href="#" onclick="cambiaPassword();return false">cambia password</a> · <a href="#" onclick="esci();return false">esci</a></span></header><main id="main">Caricamento…</main>`;
   try {
     [S.gestori, S.codici] = await Promise.all([api.list('gestori', {order: [['cognome'], ['nome']]}), api.list('dgstat_codici', {order: [['ordine']]})]);
-    if (!S.gestori.length) { $('#main').innerHTML = '<div class="avviso">Nessun dato visibile: l\'utente non è ancora abilitato nella tabella occ.utenti_app.</div>'; return; }
+    if (!S.gestori.length && !ante) { $('#main').innerHTML = '<div class="avviso">Nessun dato visibile: l\'utente non è ancora abilitato nella tabella occ.utenti_app.</div>'; return; }
   } catch (e) { $('#main').innerHTML = `<div class="avviso">Errore di collegamento: ${h(e.message)}</div>`; return; }
   vai(S.tab);
 }
@@ -424,10 +424,11 @@ async function apriTappe(pid) {
     <td style="white-space:normal"><textarea id="tno${t.id}" class="nota-tappa" rows="1" oninput="allunga(this)" placeholder="${st === 'bloccato' ? 'motivo del blocco' : ''}">${h(r.note || '')}</textarea></td></tr>`; }).join('')}
   </tbody></table>
   <label style="display:block;margin-top:10px;font-size:12px;color:var(--mute)">Nota sulla pratica<textarea id="tnota" class="nota-tappa" style="min-height:60px;max-height:260px" oninput="allunga(this)">${h((S.tp.mon || {}).nota || '')}</textarea></label>
-  <div class="azioni"><button class="b" onclick="salva(salvaTappe,this)">Salva le tappe</button>
-  <button class="b2" onclick="salva(confermaVerifica,this)" title="Registra che la pratica è stata verificata oggi anche se nessuna tappa è cambiata">Verificata, nessuna novità</button>
+  <div class="azioni">${S.me && S.me.ruolo === 'anteprima' ? '<span class="nota"><b>Anteprima in sola lettura</b>: niente salvataggi.</span>' : `<button class="b" onclick="salva(salvaTappe,this)">Salva le tappe</button>
+  <button class="b2" onclick="salva(confermaVerifica,this)" title="Registra che la pratica è stata verificata oggi anche se nessuna tappa è cambiata">Verificata, nessuna novità</button>`}
   ${S.me && (S.me.ruolo === 'admin' || S.me.ruolo === 'lettura') ? `<button class="b2" onclick="apriProcedura(${pid})">Scheda della procedura</button>` : ''}</div></div>`);
   document.querySelectorAll('#dcorpo textarea.nota-tappa').forEach(allunga);
+  if (S.me && S.me.ruolo === 'anteprima') document.querySelectorAll('#dcorpo select, #dcorpo input, #dcorpo textarea').forEach(e => e.disabled = true);
 }
 async function salvaTappe() {
   const {pid, tappe, per} = S.tp, daScrivere = []; let n = 0;
@@ -463,7 +464,13 @@ async function tabMie() {
   $('#main').innerHTML = 'Caricamento…';
   try { const [r] = await Promise.all([api.list('v_mie_pratiche'), caricaAvanzamento()]); S.mie = r; }
   catch (e) { $('#main').innerHTML = `<div class="avviso">Vista v_mie_pratiche non disponibile: ${h(e.message)}</div>`; return; }
-  $('#main').innerHTML = `<div class="filtri"><label>Cerca (debitore, protocollo)<input id="pq" value="${h(S.pq || '')}" size="30"></label>
+  let ante = '';
+  if (S.me.ruolo === 'anteprima') {   // v25: Giampaolo vede «Le mie pratiche» come un Gestore a scelta, in sola lettura
+    let gl = []; try { gl = await api.rpc('anteprima_gestori', {}); } catch (e) {}
+    ante = `<div class="avviso" style="margin-bottom:8px"><b>Anteprima in sola lettura</b> – vedi le pratiche come le vede il Gestore scelto; non si può salvare nulla.
+     <label style="display:inline-flex;gap:6px;align-items:center;margin-left:8px">Gestore <select onchange="scegliAnteprima(this.value)"><option value="">— scegli —</option>${gl.map(g => `<option value="${g.gestore_id}" ${g.gestore_id === S.me.gestore_id ? 'selected' : ''}>${h(g.gestore)} (${g.pratiche}${g.solo_ausiliario ? ', ausiliaria' : ''})</option>`).join('')}</select></label></div>`;
+  }
+  $('#main').innerHTML = ante + `<div class="filtri"><label>Cerca (debitore, protocollo)<input id="pq" value="${h(S.pq || '')}" size="30"></label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pf" ${S.pf ? 'checked' : ''}> solo da aggiornare (ferme)</label></div>
    <div class="nota" style="margin-bottom:6px">Le pratiche di cui risulta Gestore all'OCC. Clic sulla percentuale (o sulla riga) per aggiornare le tappe; se nulla è cambiato, nella finestra c'è «Verificata, nessuna novità». Se una pratica manca o non è più Sua, lo segnali all'OCC rispondendo alla mail di richiesta.</div>
    <div id="lista"></div>`;
@@ -484,6 +491,7 @@ function disegnaMie() {
 }
 S.ridisegna_mie = () => disegnaMie();
 function apriMiaRiga(p) { apriTappe(p.procedura_id); }
+async function scegliAnteprima(gid) { if (!gid) return; try { await api.rpc('anteprima_scegli', {gid: Number(gid)}); } catch (e) { return toast('Errore: ' + e.message); } S.pq = ''; S.pf = false; entra(); }
 
 // ---------- MONITORAGGIO (v9t): Gestori a cui chiedere l'aggiornamento delle tappe e loro pratiche ----------
 S.monAp = {};
