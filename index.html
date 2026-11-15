@@ -30,6 +30,8 @@ table{border-collapse:collapse;width:100%}
 th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:top}
 th{position:sticky;top:0;vertical-align:bottom;line-height:1.2;background:var(--th);font-size:12px;color:var(--thtx);font-weight:700;cursor:pointer;user-select:none;border-bottom:0}
 tbody tr.cl{cursor:pointer}
+tr.grp td{background:var(--acc2)}
+tr.sub td:first-child{padding-left:26px}
 th .rz{position:absolute;right:-3px;top:0;bottom:0;width:7px;cursor:col-resize;z-index:1}
 th .rz:hover,th .rz.on{background:var(--acc);opacity:.5}
 table.fissa{table-layout:fixed}
@@ -286,8 +288,11 @@ function stampaVista(id) {
       `<div class="riep"><span>Saldo iniziale: <b>€ ${euro(ini)}</b></span><span>Entrate: <b>€ ${euro(ent)}</b></span><span>Uscite: <b>€ ${euro(usc)}</b></span><span>Saldo finale: <b>€ ${euro(fin)}</b></span></div>` +
       tabellaStampa('ec', r, `<td>Totale movimenti e saldo finale</td><td class="n">${euro(ent + usc)}</td><td class="n">${euro(fin)}</td><td colspan="3"></td>`)); }
   if (id === 'dp') return stampaHtml('Compensi da pagare ai Gestori', `incassi fino al ${data(S.fdp.lim)} · soglia € ${euro(S.fdp.soglia)} · regola: importo / 1,22 × 70% / 1,04 (Finpiemonte senza IVA)`, tabellaStampa('dp'));
-  if (id === 'bon') { const f = S.fbon || {}; return stampaHtml('Bonifici ai Gestori', `${periodo(f.dal, f.al)} · ${n} bonifici · ` + filtriTesto([['cerca', S.bq], ['stato', S.bs]]),
-      tabellaStampa('bon', null, `<td colspan="3">Totale netto</td><td class="n">${euro(somma(S.rows_bon, b => b.netto))}</td><td colspan="3"></td>`)); }
+  if (id === 'bon') { const f = S.fbon || {}, r = S.rows_bon;
+    const corpo = `<table><thead><tr><th>Beneficiario / data</th><th class="n">Bonifici</th><th class="n">Importo €</th><th>Stato</th><th>Proforma</th><th>Note</th></tr></thead><tbody>${S.bonG.map(x => `<tr><td><b>${h(x.nome)}</b> (${x.tipo === 'gestore' ? 'Gestore' : 'altro'})</td><td class="n">${x.n}</td><td class="n"><b>${euro(x.tot)}</b></td><td colspan="3"></td></tr>`
+      + (S.bonAperti.has(x.nome) ? x.righe.map(b => `<tr><td>&nbsp;&nbsp;${data(b.data)}</td><td></td><td class="n">${euro(b.importo)}</td><td>${h(b.stato)}</td><td>${h(b.proforma_numero)}</td><td>${h(b.note)}</td></tr>`).join('') : '')).join('')}</tbody>
+      <tfoot><tr><td>Totale</td><td class="n">${r.length}</td><td class="n">${euro(somma(r, b => b.importo))}</td><td colspan="3"></td></tr></tfoot></table>`;
+    return stampaHtml('Bonifici per beneficiario', `${periodo(f.dal, f.al)} · ${S.bonG.length} beneficiari · ${n} bonifici · ` + filtriTesto([['cerca', S.bq], ['beneficiari', {gestore: 'solo Gestori', altro: 'solo altri'}[S.bt]], ['stato', S.bs]]) + ' · i dettagli sono stampati per i beneficiari aperti', corpo); }
   if (id === 'ade') { const f = S.fa; return stampaHtml('Condivise – adempimenti delle procedure condivise', `${n} righe · vista ${f.v === 'griglia' ? 'a griglia' : 'a elenco'} · ` + filtriTesto([['cerca', f.q], ['responsabile', f.r], ['stato', f.s], ['adempimento', f.a]]), tabellaStampa('ade')); }
   if (id === 'reg') return stampaHtml('Registro modifiche', `${n} modifiche`, tabellaStampa('reg'));
 }
@@ -923,26 +928,50 @@ async function creaBonifico() {
 }
 
 // ---------- BONIFICI ----------
+// v26: scheda Bonifici raggruppata per beneficiario (Gestori da bonifici_gestori + altri beneficiari dall'estratto conto)
 async function tabBonifici() {
   $('#main').innerHTML = 'Caricamento…';
-  S.bon = await api.list('v_bonifici');
-  $('#main').innerHTML = `<div class="filtri"><label>Cerca<input id="bq" value="${h(S.bq)}"></label><label>Stato<select id="bs">${opt(STATI_BON, S.bs, 'tutti')}</select></label>
+  S.bon = await api.list('v_bonifici_beneficiari');
+  S.bonAperti = S.bonAperti || new Set();
+  $('#main').innerHTML = `<div class="filtri"><label>Cerca<input id="bq" value="${h(S.bq)}"></label>
+   <label>Beneficiari<select id="bt">${['', 'gestore', 'altro'].map(v => `<option value="${v}" ${S.bt === v ? 'selected' : ''}>${{'': 'tutti', gestore: 'solo Gestori', altro: 'solo altri beneficiari'}[v]}</option>`).join('')}</select></label>
+   <label>Stato<select id="bs">${opt(STATI_BON, S.bs, 'tutti')}</select></label>
    <label>Dal<input type="date" id="bdal" value="${h((S.fbon || {}).dal)}"></label><label>Al<input type="date" id="bal" value="${h((S.fbon || {}).al)}"></label>
-   <button class="b2" onclick="scaricaCSV('bonifici_'+oggi()+'.csv',S.rows_bon.map(({_cls,...b})=>b))">Esporta CSV</button>${btnStampa('bon')}</div><div id="lista"></div>`;
-  $('#bq').addEventListener('input', disegnaBon); ['bs', 'bdal', 'bal'].forEach(x => $('#' + x).addEventListener('change', disegnaBon)); disegnaBon();
+   <button class="b2" onclick="bonTutti(true)">Espandi tutti</button><button class="b2" onclick="bonTutti(false)">Chiudi tutti</button>
+   <button class="b2" onclick="scaricaCSV('bonifici_'+oggi()+'.csv',S.rows_bon.map(({chiave,bonifico_id,incasso_id,...b})=>b))">Esporta CSV</button>${btnStampa('bon')}</div><div id="lista"></div>`;
+  $('#bq').addEventListener('input', disegnaBon); ['bt', 'bs', 'bdal', 'bal'].forEach(x => $('#' + x).addEventListener('change', disegnaBon)); disegnaBon();
 }
 S.ridisegna_bon = () => disegnaBon();
-function disegnaBon() {
-  S.bq = $('#bq').value.trim().toLowerCase(); S.bs = $('#bs').value; const fb = S.fbon = {dal: $('#bdal').value, al: $('#bal').value};
-  const r = S.bon.filter(b => (!S.bq || [b.gestore, b.proforma_numero, b.note].join(' ').toLowerCase().includes(S.bq)) && (!S.bs || b.stato === S.bs)
+function bonFiltrati() {
+  S.bq = $('#bq').value.trim().toLowerCase(); S.bt = $('#bt').value; S.bs = $('#bs').value; const fb = S.fbon = {dal: $('#bdal').value, al: $('#bal').value};
+  return S.bon.filter(b => (!S.bq || [b.beneficiario, b.proforma_numero, b.note].join(' ').toLowerCase().includes(S.bq)) && (!S.bt || b.tipo === S.bt) && (!S.bs || b.stato === S.bs)
     && (!fb.dal || (b.data && b.data >= fb.dal)) && (!fb.al || (b.data && b.data <= fb.al)));
-  $('#lista').innerHTML = `<div class="conta">${r.length} bonifici · netto € ${euro(somma(r, b => b.netto))}</div>` + tabella('bon', [
-    {t: 'Data', v: b => b.data || '9999', f: b => data(b.data)}, {t: 'Gestore', v: b => b.gestore},
-    {t: 'Stato', v: b => b.stato, f: b => `<span class="tag ${b.stato === 'fatto' ? '' : b.stato === 'annullato' ? 'e' : 'w'}">${h(b.stato)}</span>`},
-    {t: 'Netto', n: 1, v: b => Number(b.netto), f: b => euro(b.netto)}, {t: 'Movimenti', n: 1, v: b => Number(b.movimenti)}, {t: 'Proforma', v: b => b.proforma_numero},
-    {t: 'Note', w: 1, v: b => b.note}], r, 'apriBonRiga');
 }
-function apriBonRiga(b) { apriBonifico(b.id); }
+// gruppi per beneficiario, ordinabili per nome, numero di bonifici o totale
+function bonGruppi(r) {
+  const m = new Map();
+  r.forEach(b => { const k = b.beneficiario || '(senza nome)'; if (!m.has(k)) m.set(k, {nome: k, tipo: b.tipo, righe: []}); m.get(k).righe.push(b); });
+  const g = [...m.values()]; g.forEach(x => { x.righe.sort((a, b) => (b.data || '9999').localeCompare(a.data || '9999')); x.tot = somma(x.righe, b => b.importo); x.n = x.righe.length; });
+  const o = S.ord_bong || {c: 0, d: 1}, v = [x => x.nome, x => x.n, x => x.tot][o.c];
+  return g.sort((a, b) => { const x = v(a), y = v(b); return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'it')) * o.d; });
+}
+function ordinaBon(c) { const o = S.ord_bong || {c: 0, d: 1}; S.ord_bong = {c, d: o.c === c ? -o.d : (c ? -1 : 1)}; disegnaBon(); }
+function bonApri(i) { const k = S.bonG[i].nome; S.bonAperti.has(k) ? S.bonAperti.delete(k) : S.bonAperti.add(k); disegnaBon(); }
+function bonTutti(si) { S.bonAperti = new Set(si ? S.bonG.map(g => g.nome) : []); disegnaBon(); }
+const tagBon = b => `<span class="tag ${b.stato === 'fatto' ? '' : b.stato === 'annullato' ? 'e' : 'w'}">${h(b.stato)}</span>`;
+const tipoBon = t => t === 'gestore' ? '<span class="tag">Gestore</span>' : '<span class="tag w">altro</span>';
+function disegnaBon() {
+  const r = bonFiltrati(), g = S.bonG = bonGruppi(r); S.rows_bon = r;
+  const o = S.ord_bong || {c: 0, d: 1}, fr = c => o.c === c ? (o.d > 0 ? ' ▲' : ' ▼') : '';
+  const tg = somma(r.filter(b => b.tipo === 'gestore'), b => b.importo), ta = somma(r.filter(b => b.tipo === 'altro'), b => b.importo);
+  $('#lista').innerHTML = `<div class="conta">${g.length} beneficiari · ${r.length} bonifici · totale € ${euro(tg + ta)} (Gestori, compenso netto: € ${euro(tg)} · altri beneficiari: € ${euro(ta)})</div>
+  <div class="tab"><table class="bong"><thead><tr><th onclick="ordinaBon(0)">Beneficiari${fr(0)}</th><th onclick="ordinaBon(1)" class="n">Bonifici${fr(1)}</th><th onclick="ordinaBon(2)" class="n">Totale €${fr(2)}</th><th>Stato</th><th>Proforma</th><th>Note</th></tr></thead><tbody>
+  ${g.map((x, i) => { const ap = S.bonAperti.has(x.nome); return `<tr class="cl grp" onclick="bonApri(${i})"><td><b>${ap ? '▾' : '▸'} ${h(x.nome)}</b> ${tipoBon(x.tipo)}</td><td class="n">${x.n}</td><td class="n"><b>${euro(x.tot)}</b></td><td colspan="3"></td></tr>`
+    + (ap ? x.righe.map(b => `<tr class="cl sub" onclick="apriBonBen('${b.chiave}')"><td>${data(b.data) || 'senza data'}</td><td class="n">${b.movimenti != null ? h(b.movimenti) + ' mov.' : ''}</td><td class="n">${euro(b.importo)}</td><td>${tagBon(b)}</td><td>${h(b.proforma_numero)}</td><td class="wrap nota">${h(b.note)}</td></tr>`).join('') : ''); }).join('')}</tbody>
+  <tfoot><tr><td>Totale</td><td class="n">${r.length}</td><td class="n">${euro(tg + ta)}</td><td colspan="3"></td></tr></tfoot></table></div>
+  <p class="nota">Per i Gestori l'importo è il compenso netto (senza Cassa, IVA e ritenuta); per gli altri beneficiari è l'importo bonificato, dall'estratto conto. Clic sul nome: si apre l'elenco dei bonifici; clic su un bonifico: il dettaglio.</p>`;
+}
+function apriBonBen(k) { const b = S.bon.find(x => x.chiave === k); if (!b) return; b.tipo === 'gestore' ? apriBonifico(b.bonifico_id) : apriIncasso(b.incasso_id); }
 async function apriBonifico(id) {
   apri('Bonifico…', 'Caricamento…');
   const [[b], righe] = await Promise.all([api.list('bonifici_gestori', {f: [['eq', 'id', id]]}), api.list('bonifici_righe', {f: [['eq', 'bonifico_id', id]]})]);
@@ -973,7 +1002,7 @@ async function salvaBonifico() {
   if (n.stato === 'annullato' && S.b.stato !== 'annullato' && !confirm('Annullare il bonifico? I movimenti torneranno tra quelli da pagare.')) return;
   const patch = diff(S.b, n); if (!Object.keys(patch).length) return toast('Nessuna modifica');
   await api.update('bonifici_gestori', {id: S.b.id}, patch); toast('Bonifico salvato');
-  if (S.tab === 'bonifici') { S.bon = await api.list('v_bonifici'); disegnaBon(); }
+  if (S.tab === 'bonifici') { S.bon = await api.list('v_bonifici_beneficiari'); disegnaBon(); }
   apriBonifico(S.b.id);
 }
 
