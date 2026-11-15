@@ -482,6 +482,7 @@ function disegnaMie() {
     {t: 'In attesa doc.', v: p => p.giorni_attesa_documenti ?? -1, f: p => p.tappe_in_attesa ? `<span class="tag w">da ${p.giorni_attesa_documenti} gg</span>` : ''},
     {t: 'Ultimo aggiornamento', v: p => p.ultimo_aggiornamento || '', f: p => p.ultimo_aggiornamento ? data(p.ultimo_aggiornamento) + (p.ferma ? ' <span class="tag w">da aggiornare</span>' : '') : '<span class="tag w">mai</span>'}], r, 'apriMiaRiga');
 }
+S.ridisegna_mie = () => disegnaMie();
 function apriMiaRiga(p) { apriTappe(p.procedura_id); }
 
 // ---------- MONITORAGGIO (v9t): Gestori a cui chiedere l'aggiornamento delle tappe e loro pratiche ----------
