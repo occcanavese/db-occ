@@ -279,7 +279,12 @@ function stampaVista(id) {
   if (!n) return toast('Niente da stampare con questi filtri', true);
   if (id === 'proc') { const f = S.fp; return stampaHtml('Elenco procedure', `${n} debitori · ${periodo(f.dd, f.da)} (data domanda) · ` + filtriTesto([['cerca', f.q], ['anno', f.a], ['stato Lexdebita', f.f === '__nessuno' ? 'non su Lexdebita' : f.f], ['tipo', f.t], ['Gestore', f.g === '__nessuno' ? 'senza Gestore' : f.g], ['DGSTAT 2026', f.d]]), tabellaStampa('proc')); }
   if (id === 'gest') return stampaHtml('Gestori', `${n} Gestori · ` + filtriTesto([['cerca', S.gq], ['solo con procedure in carico', S.gc ? 'sì' : '']]), tabellaStampa('gest'));
-  if (id === 'inc') { const f = S.fi, r = S.rows_inc; return stampaHtml('Incassi', `${periodo(f.dal, f.al)} · ${n} movimenti · ` + filtriTesto([['cerca', f.q], ['destinazione', f.d], ['solo entrate', f.e ? 'sì' : ''], ['senza procedura', f.s ? 'sì' : '']]),
+  if (id === 'inc') { const f = S.fi, r = S.rows_inc, ft = filtriTesto([['cerca', f.q], ['destinazione', f.d], ['solo entrate', f.e ? 'sì' : ''], ['senza procedura', f.s ? 'sì' : '']]);
+    if (f.g) { const corpo = `<table><thead><tr><th>Procedura / data</th><th class="n">Movimenti</th><th class="n">Importo €</th><th>Descrizione</th></tr></thead><tbody>${S.incG.map(x => `<tr><td><b>${x.et}</b></td><td class="n">${x.n}</td><td class="n"><b>${euro(x.tot)}</b></td><td></td></tr>`
+        + (S.incAperti.has(x.k) ? x.righe.map(m => `<tr><td>&nbsp;&nbsp;${data(m.data_contabile)}</td><td></td><td class="n">${euro(m.importo)}</td><td>${h(m.descrizione)}</td></tr>`).join('') : '')).join('')}</tbody>
+        <tfoot><tr><td>Totale</td><td class="n">${r.length}</td><td class="n">${euro(somma(r, i => i.importo))}</td><td></td></tr></tfoot></table>`;
+      return stampaHtml('Incassi per procedura', `${periodo(f.dal, f.al)} · ${S.incG.length} procedure · ${n} movimenti · ${ft} · i movimenti sono stampati per le procedure aperte`, corpo); }
+    return stampaHtml('Incassi', `${periodo(f.dal, f.al)} · ${n} movimenti · ` + ft,
       tabellaStampa('inc', null, `<td>Totale</td><td class="n">${euro(somma(r, i => i.importo))}</td><td colspan="4"></td>`)); }
   if (id === 'ec') { const f = S.fec, r = [...S.rows_ec].sort((a, b) => a.data_contabile.localeCompare(b.data_contabile) || a.id - b.id);
     const ini = Number(r[0].saldo) - Number(r[0].importo), fin = Number(r[r.length - 1].saldo), ent = somma(r.filter(x => x.importo > 0), x => x.importo), usc = somma(r.filter(x => x.importo < 0), x => x.importo);
@@ -777,22 +782,50 @@ async function tabIncassi() {
   $('#main').innerHTML = 'Caricamento…';
   [S.inc] = await Promise.all([api.list('incassi', {order: [['data_contabile', false], ['id', false]]}), S.elenco.length ? null : api.list('v_elenco_procedure').then(r => S.elenco = r)]);
   S.procMap = {}; S.elenco.forEach(r => { if (!S.procMap[r.procedura_id] || r.ruolo === 'principale') S.procMap[r.procedura_id] = r.protocollo + ' ' + r.debitore; });
-  const f = S.fi || (S.fi = {dal: '', al: '', q: '', d: '', s: false, e: true});
+  const f = S.fi || (S.fi = {dal: '', al: '', q: '', d: '', s: false, e: true, g: true});
+  S.incAperti = S.incAperti || new Set();
   $('#main').innerHTML = `<div class="filtri"><label>Cerca<input id="iq" value="${h(f.q)}" size="28" placeholder="descrizione, procedura, importo"></label>
    <label>Dal<input type="date" id="idal" value="${h(f.dal)}"></label><label>Al<input type="date" id="ial" value="${h(f.al)}"></label>
    <label>Destinazione<select id="id">${opt(['gestore', 'occ'], f.d, 'tutte')}</select></label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="ie" ${f.e ? 'checked' : ''}> solo entrate</label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="is" ${f.s ? 'checked' : ''}> senza procedura</label>
+   <label class="chk" style="flex-direction:row;align-items:center;gap:4px" title="Una riga per procedura con il totale versato; clic sul nome per vedere i movimenti"><input type="checkbox" id="ig" ${f.g !== false ? 'checked' : ''}> raggruppa per procedura</label>
+   <span id="igbtn"><button class="b2" onclick="incTutti(true)">Espandi tutti</button><button class="b2" onclick="incTutti(false)">Chiudi tutti</button></span>
    <button class="b2" onclick="scaricaCSV('incassi_'+oggi()+'.csv',S.rows_inc.map(({_cls,...r})=>({...r,procedura:S.procMap[r.procedura_id]||''})))">Esporta CSV</button>${btnStampa('inc')}
    <button class="b" onclick="nuovoIncasso()">+ Nuovo movimento</button></div><div id="lista"></div>`;
-  ['iq', 'idal', 'ial', 'id', 'ie', 'is'].forEach(id => $('#' + id).addEventListener(id === 'iq' ? 'input' : 'change', disegnaInc));
+  ['iq', 'idal', 'ial', 'id', 'ie', 'is', 'ig'].forEach(id => $('#' + id).addEventListener(id === 'iq' ? 'input' : 'change', disegnaInc));
   disegnaInc();
 }
 S.ridisegna_inc = () => disegnaInc();
+// v27: incassi raggruppati per procedura (clic sul nome: si aprono i movimenti, con il totale versato)
+const incChiave = i => i.procedura_id ? 'p' + i.procedura_id : i.procedura_foglio ? 'f' + i.procedura_foglio : '-';
+const incEtichetta = i => i.procedura_id ? h(S.procMap[i.procedura_id] || 'procedura ' + i.procedura_id) : i.procedura_foglio ? `<span class="tag w">${h(i.procedura_foglio)}</span> <span class="nota">senza procedura collegata</span>` : '<span class="nota">(senza procedura)</span>';
+function incGruppi(r) {
+  const m = new Map();
+  r.forEach(i => { const k = incChiave(i); if (!m.has(k)) m.set(k, {k, nome: i.procedura_id ? (S.procMap[i.procedura_id] || '') : (i.procedura_foglio || '~'), et: incEtichetta(i), pid: i.procedura_id, righe: []}); m.get(k).righe.push(i); });
+  const g = [...m.values()]; g.forEach(x => { x.righe.sort((a, b) => b.data_contabile.localeCompare(a.data_contabile) || b.id - a.id); x.tot = somma(x.righe, i => i.importo); x.n = x.righe.length; x.ult = x.righe[0].data_contabile; });
+  const o = S.ord_incg || {c: 0, d: 1}, v = [x => x.nome, x => x.n, x => x.tot, x => x.ult][o.c];
+  return g.sort((a, b) => { const x = v(a), y = v(b); return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'it', {numeric: true})) * o.d; });
+}
+function ordinaIncG(c) { const o = S.ord_incg || {c: 0, d: 1}; S.ord_incg = {c, d: o.c === c ? -o.d : (c ? -1 : 1)}; disegnaInc(); }
+function incApri(i) { const k = S.incG[i].k; S.incAperti.has(k) ? S.incAperti.delete(k) : S.incAperti.add(k); disegnaInc(); }
+function incTutti(si) { S.incAperti = new Set(si ? (S.incG || []).map(g => g.k) : []); disegnaInc(); }
 function disegnaInc() {
-  const f = S.fi = {q: $('#iq').value.trim().toLowerCase(), dal: $('#idal').value, al: $('#ial').value, d: $('#id').value, e: $('#ie').checked, s: $('#is').checked};
+  const f = S.fi = {q: $('#iq').value.trim().toLowerCase(), dal: $('#idal').value, al: $('#ial').value, d: $('#id').value, e: $('#ie').checked, s: $('#is').checked, g: $('#ig').checked};
   const r = S.inc.filter(i => (!f.q || [i.descrizione, i.note, S.procMap[i.procedura_id], i.procedura_foglio, euro(i.importo)].join(' ').toLowerCase().includes(f.q))
     && (!f.dal || i.data_contabile >= f.dal) && (!f.al || i.data_contabile <= f.al) && (!f.d || i.destinazione === f.d) && (!f.e || i.importo > 0) && (!f.s || !i.procedura_id));
+  $('#igbtn').style.display = f.g ? '' : 'none';
+  if (f.g) {
+    const g = S.incG = incGruppi(r); S.rows_inc = r;
+    const o = S.ord_incg || {c: 0, d: 1}, fr = c => o.c === c ? (o.d > 0 ? ' ▲' : ' ▼') : '';
+    $('#lista').innerHTML = `<div class="conta">${g.length} procedure · ${r.length} movimenti · totale € ${euro(somma(r, i => i.importo))}</div>
+    <div class="tab"><table class="incg"><thead><tr><th onclick="ordinaIncG(0)">Procedura${fr(0)}</th><th onclick="ordinaIncG(1)" class="n">Movimenti${fr(1)}</th><th onclick="ordinaIncG(2)" class="n">Totale versato €${fr(2)}</th><th onclick="ordinaIncG(3)">Ultimo${fr(3)}</th><th>Dest.</th><th>Descrizione</th></tr></thead><tbody>
+    ${g.map((x, i) => { const ap = S.incAperti.has(x.k); return `<tr class="cl grp" onclick="incApri(${i})"><td><b>${ap ? '▾' : '▸'}</b> <b>${x.et}</b>${x.pid ? ` <a href="#" class="nota" onclick="event.stopPropagation();apriProcedura(${x.pid});return false">apri</a>` : ''}</td><td class="n">${x.n}</td><td class="n"><b>${euro(x.tot)}</b></td><td>${data(x.ult)}</td><td colspan="2"></td></tr>`
+      + (ap ? x.righe.map(m => `<tr class="cl sub" onclick="apriIncasso(${m.id})"><td>${data(m.data_contabile)}</td><td></td><td class="n">${euro(m.importo)}</td><td></td><td>${h(m.destinazione)}${m.finpiemonte ? ' <span class="tag">Finpiemonte</span>' : ''}${m.gestore_forzato_id ? ' → ' + h(nomeG(m.gestore_forzato_id)) : ''}</td><td class="wrap nota">${h(m.descrizione)}${m.note ? ' · ' + h(m.note) : ''}</td></tr>`).join('') : ''); }).join('')}</tbody>
+    <tfoot><tr><td>Totale</td><td class="n">${r.length}</td><td class="n">${euro(somma(r, i => i.importo))}</td><td colspan="3"></td></tr></tfoot></table></div>
+    <p class="nota">Clic sul nome della procedura: si aprono i movimenti con il totale versato; clic su un movimento: il dettaglio. Togli «raggruppa per procedura» per l'elenco semplice.</p>`;
+    return;
+  }
   $('#lista').innerHTML = `<div class="conta">${r.length} movimenti · totale € ${euro(somma(r, i => i.importo))}</div>` + tabella('inc', [
     {t: 'Data', v: i => i.data_contabile, f: i => data(i.data_contabile)}, {t: 'Importo', n: 1, v: i => Number(i.importo), f: i => euro(i.importo)},
     {t: 'Procedura', v: i => S.procMap[i.procedura_id] || '', f: i => i.procedura_id ? h(S.procMap[i.procedura_id]) : (i.procedura_foglio ? `<span class="tag w">${h(i.procedura_foglio)}</span>` : '')},
