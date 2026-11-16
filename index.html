@@ -519,15 +519,15 @@ async function tabMie() {
      <label style="display:inline-flex;gap:6px;align-items:center;margin-left:8px">Gestore <select onchange="scegliAnteprima(this.value)"><option value="">— scegli —</option>${gl.map(g => `<option value="${g.gestore_id}" ${g.gestore_id === S.me.gestore_id ? 'selected' : ''}>${h(g.gestore)} (${g.pratiche}${g.solo_ausiliario ? ', ausiliaria' : ''})</option>`).join('')}</select></label></div>`;
   }
   const colleghi = S.mie.some(x => !x.mia);
-  S.mieVista ||= 'mie'; if (!colleghi && S.mieVista !== 'mie') S.mieVista = 'mie';
+  S.mieVista ||= 'mie'; if (!colleghi && S.mieVista === 'colleghi') S.mieVista = 'mie';
   const bt = (k, t) => `<button class="${S.mieVista === k ? 'b' : 'b2'}" onclick="S.mieVista='${k}';tabMie()">${t}</button>`;
-  $('#main').innerHTML = ante + (colleghi ? `<div class="azioni" style="margin:0 0 10px">${bt('mie', `Le mie procedure (${S.mieIds.size})`)}${bt('colleghi', `Condivise dei colleghi (${S.mie.length - S.mieIds.size})`)}${bt('griglia', 'Griglia delle sottotappe (condivise)')}</div>` : '') + '<div id="mieCorpo"></div>';
+  $('#main').innerHTML = ante + `<div class="azioni" style="margin:0 0 10px">${bt('mie', `Le mie procedure (${S.mieIds.size})`)}${colleghi ? bt('colleghi', `Condivise dei colleghi (${S.mie.length - S.mieIds.size})`) : ''}${bt('griglia', 'Griglia delle sottotappe')}</div>` + '<div id="mieCorpo"></div>';
   if (S.mieVista === 'griglia') return tabAdempimenti();
   $('#mieCorpo').innerHTML = `<div class="filtri"><label>Cerca (debitore, protocollo, Gestore)<input id="pq" value="${h(S.pq || '')}" size="30"></label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pi" ${S.pi ? 'checked' : ''}> solo in istruttoria (assegnate al Gestore)</label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pf" ${S.pf ? 'checked' : ''}> solo da aggiornare (ferme)</label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pc" ${S.pc ? 'checked' : ''}> anche chiuse</label></div>
-   <div class="nota" style="margin-bottom:6px">${S.mieVista === 'mie' ? `Le procedure di cui risulta Gestore all'OCC. Clic sulla riga per tutti i dati (procedura, debitori, versamenti); clic sulla percentuale per tappe e sottotappe. Se una procedura manca o non è più Sua, lo segnali all'OCC (occ@modellocanavese.it).`
+   <div class="nota" style="margin-bottom:6px">${S.mieVista === 'mie' ? `Le procedure di cui risulta Gestore all'OCC. Per il <b>monitoraggio</b> premere «Tappe ▸» (o la percentuale): si aggiornano tappe e sottotappe e, se nulla è cambiato, «Verificata, nessuna novità». Clic sulla riga per tutti i dati (procedura, debitori, versamenti). Se una procedura manca o non è più Sua, lo segnali all'OCC (occ@modellocanavese.it).`
      : `Le procedure condivise dei colleghi del Gruppo: può aggiornare le sottotappe di cui si occupa (le tappe le aggiorna il Gestore della pratica).`}</div>
    <div id="lista"></div>`;
   ['pq'].forEach(id => $('#' + id).addEventListener('input', disegnaMie)); ['pi', 'pf', 'pc'].forEach(id => $('#' + id).addEventListener('change', disegnaMie));
@@ -548,7 +548,8 @@ function disegnaMie() {
     {t: 'Gestore', v: p => p.gestore, f: p => h(p.gestore || '') + (String(p.gestore || '').includes(' + ') ? ' <span class="tag">in coppia</span>' : '')},
     ...(S.mieInc && mie ? [{t: 'Versato €', n: 1, tip: 'Totale dei bonifici del debitore incassati dall\'OCC; clic sull\'importo per l\'elenco', v: p => somma(S.mieInc[p.procedura_id] || [], i => i.importo),
       f: p => { const l = S.mieInc[p.procedura_id] || []; return l.length ? `<a href="#" onclick="event.stopPropagation();apriVersato(${p.procedura_id});return false" title="Vedi i versamenti">${euro(somma(l, i => i.importo))}</a> <span class="nota">(${l.length})</span>` : '<span class="nota">—</span>'; }}] : []),
-    {t: '% avanzamento', v: p => p.avanzamento_pct == null ? -1 : Number(p.avanzamento_pct), f: p => p.avanzamento_pct == null ? `<a href="#" class="nota" onclick="event.stopPropagation();apriTappe(${p.procedura_id});return false">tappe</a>` : avzCella(p.procedura_id)},
+    {t: 'Tappe', v: p => 0, f: p => `<button class="b" style="padding:3px 10px" onclick="event.stopPropagation();apriTappe(${p.procedura_id})" title="Aggiorna tappe e sottotappe (monitoraggio)">Tappe ▸</button>`},
+    {t: '% avanzamento', v: p => p.avanzamento_pct == null ? -1 : Number(p.avanzamento_pct), f: p => p.avanzamento_pct == null ? '' : avzCella(p.procedura_id)},
     {t: 'Ultimo aggiornamento', v: p => p.ultimo_aggiornamento || '', f: p => p.avanzamento_pct == null ? '' : p.ultimo_aggiornamento ? data(p.ultimo_aggiornamento) + (p.ferma ? ' <span class="tag w">da aggiornare</span>' : '') : '<span class="tag w">mai</span>'}], r, 'apriMiaRiga');
 }
 S.ridisegna_mie = () => disegnaMie();
@@ -1156,11 +1157,13 @@ async function ricaricaAde() {
 async function tabAdempimenti() {
   const dove = $('#mieCorpo') || $('#main');
   dove.innerHTML = 'Caricamento…';
+  const daMie = !!$('#mieCorpo');   // dentro «Le mie procedure»: procedure del Gestore e (Volenterosi) condivise dei colleghi
   const [cat, el, pec] = await Promise.all([
     api.list('attivita', {f: [['eq', 'attivo', true]], order: [['ordine'], ['id']]}),
-    api.list('v_elenco_procedure', {f: [['eq', 'condivisa', true]]}),
-    api.list('procedure', {select: 'id,pec,pec_username', f: [['eq', 'condivisa', true]]})]);
+    daMie ? Promise.resolve([]) : api.list('v_elenco_procedure', {f: [['eq', 'condivisa', true]]}),
+    daMie ? Promise.resolve([]) : api.list('procedure', {select: 'id,pec,pec_username', f: [['eq', 'condivisa', true]]})]);
   S.pecMap = {}; pec.forEach(r => S.pecMap[r.id] = r);
+  if (daMie) (S.mie || []).forEach(r => S.pecMap[r.procedura_id] = {id: r.procedura_id, pec: r.pec, pec_username: r.pec_username});
   const tappe = cat.filter(t => !t.padre_id).sort((x, y) => x.ordine - y.ordine);
   S.adeTappe = {}; tappe.forEach(t => S.adeTappe[t.id] = t);
   S.ade = []; tappe.forEach(t => cat.filter(x => x.padre_id === t.id).sort((x, y) => x.ordine - y.ordine).forEach(x => S.ade.push(x)));
@@ -1169,11 +1172,16 @@ async function tabAdempimenti() {
   const pr = {};
   el.forEach(r => { const o = pr[r.procedura_id] ||= {procedura_id: r.procedura_id, protocollo: r.protocollo, deb: [], gestore: r.gestore, fase: r.fase};
     if (r.ruolo === 'principale') { o.protocollo = r.protocollo; o.deb.unshift(r.debitore); } else o.deb.push(r.debitore); });
-  S.procAde = Object.values(pr).map(o => ({...o, debitore: o.deb.join(' + '), pec: (S.pecMap[o.procedura_id] || {}).pec, pec_username: (S.pecMap[o.procedura_id] || {}).pec_username})).sort((a, b) => a.protocollo.localeCompare(b.protocollo, 'it', {numeric: true}));
+  S.procAde = daMie
+    ? (S.mie || []).filter(r => r.fase !== 'chiusa').map(r => ({procedura_id: r.procedura_id, protocollo: r.protocollo_lexdebita || '', debitore: r.debitori || '', gestore: r.gestore, fase: r.fase, pec: r.pec, pec_username: r.pec_username, mia: r.mia}))
+    : Object.values(pr).map(o => ({...o, debitore: o.deb.join(' + '), pec: (S.pecMap[o.procedura_id] || {}).pec, pec_username: (S.pecMap[o.procedura_id] || {}).pec_username}));
+  S.procAde.sort((a, b) => String(a.protocollo).localeCompare(String(b.protocollo), 'it', {numeric: true}));
   S.fa ||= {v: 'griglia', q: '', r: '', s: '', a: ''};
+  S.fa.amb ||= 'mie';
   const resp = [...new Set(S.pa.map(x => x.responsabile).filter(Boolean))].sort();
   const f = S.fa;
   dove.innerHTML = `<div class="filtri">
+    ${daMie && S.procAde.some(p => !p.mia) ? `<label>Procedure<select onchange="S.fa.amb=this.value;disegnaAde()">${opt([['mie', 'le mie'], ['colleghi', 'condivise dei colleghi'], ['tutte', 'tutte']], f.amb)}</select></label>` : ''}
     <label>Vista<select onchange="S.fa.v=this.value;disegnaAde()">${opt([['griglia', 'Griglia procedure × sottotappe'], ['elenco', 'Elenco dei compiti']], f.v)}</select></label>
     <label>Cerca<input value="${h(f.q)}" placeholder="debitore, protocollo, Gestore, note…" oninput="S.fa.q=this.value;disegnaAde()"></label>
     <label>Responsabile<select onchange="S.fa.r=this.value;disegnaAde()"><option value="">tutti</option>${S.me.nome ? `<option value="${h(S.me.nome)}" ${f.r === S.me.nome ? 'selected' : ''}>i miei (${h(S.me.nome)})</option>` : ''}${resp.filter(r => r !== S.me.nome).map(r => `<option ${f.r === r ? 'selected' : ''}>${h(r)}</option>`).join('')}</select></label>
@@ -1195,7 +1203,8 @@ function adeOk(x) {           // filtri responsabile / stato / sottotappa su una
 function nomeTappaDi(a) { return ((S.adeTappe || {})[a.padre_id] || {}).nome || ''; }
 function disegnaAde() {
   const f = S.fa, q = f.q.trim().toLowerCase();
-  const pOk = p => !q || [p.protocollo, p.debitore, p.gestore, p.pec, p.pec_username].some(v => (v || '').toLowerCase().includes(q));
+  const amb = $('#mieCorpo') && S.procAde.some(p => !p.mia) ? f.amb : 'tutte';
+  const pOk = p => (amb === 'tutte' || (amb === 'mie') === !!p.mia) && (!q || [p.protocollo, p.debitore, p.gestore, p.pec, p.pec_username].some(v => (v || '').toLowerCase().includes(q)));
   const nomeA = id => { const a = S.ade.find(x => x.id === id) || {}; return a.nome ? nomeTappaDi(a) + ' › ' + a.nome : ''; };
   if (f.v === 'griglia') {
     const ades = f.a ? S.ade.filter(a => String(a.id) === String(f.a)) : S.ade;
@@ -1205,7 +1214,7 @@ function disegnaAde() {
     const cella = (p, a) => { const x = S.paMap[p.procedura_id + '_' + a.id];
       const tit = x ? `${nomeTappaDi(a)} › ${a.nome}: ${x.stato}${x.responsabile ? ' – ' + x.responsabile : ''}${x.note ? ' – ' + x.note : ''}` : `${nomeTappaDi(a)} › ${a.nome}: non registrato`;
       return `<span class="st ${x ? ATT_CLS[x.stato] : 'vuoto'}" title="${h(tit)}" onclick="event.stopPropagation();apriAde(${p.procedura_id},${a.id})">${x ? ATT_SIG[x.stato] : '+'}</span>`; };
-    $('#lista').innerHTML = `<div class="conta">${righe.length} procedure condivise</div>` + tabella('ade', [
+    $('#lista').innerHTML = `<div class="conta">${righe.length} procedure</div>` + tabella('ade', [
       {t: 'Protocollo', v: p => p.protocollo}, {t: 'Debitore', v: p => p.debitore}, {t: 'Gestore', v: p => p.gestore},
       {t: 'Indirizzo PEC', v: p => p.pec}, {t: 'Utente PEC', v: p => p.pec_username},
       ...ades.map(a => ({t: a.codice, v: p => { const x = S.paMap[p.procedura_id + '_' + a.id]; return x ? STATI_ATT.indexOf(x.stato) : -1; }, f: p => cella(p, a)}))], righe);
