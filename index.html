@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica, v3 (Claudia, 08/11/2026: dati omologa per il Ministero; IBAN esteri; estratto conto con saldo; colonne ridimensionabili; stampa/PDF). Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v31, 17/11/2026: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -232,7 +232,7 @@ async function entra() {
   if (S.me.cambio_password) return schermataPrimaPassword();
   const vol = S.me.ruolo === 'volenteroso', ante = S.me.ruolo === 'anteprima', gest = S.me.ruolo === 'gestore' || ante;
   if (vol || gest) S.tab = 'mie';
-  const schede = (gest || vol) ? [['mie', 'Le mie procedure']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
+  const schede = (gest || vol) ? [['mie', 'Le mie procedure']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['omologhe','Omologhe'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
   $('#app').innerHTML = `<header><h1>Database OCC</h1><nav>${schede.map(([k,t]) => `<button data-t="${k}" onclick="vai('${k}')">${t}</button>`).join('')}</nav>
   <span class="chi">${h(S.me.nome || utente.email)} · <a href="#" onclick="cambiaPassword();return false">cambia password</a> · <a href="#" onclick="esci();return false">esci</a></span></header><main id="main">Caricamento…</main>`;
   try {
@@ -244,7 +244,7 @@ async function entra() {
 function vai(t) {
   S.tab = t; chiudi();
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  ({adempimenti: tabAdempimenti, mie: tabMie, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
+  ({adempimenti: tabAdempimenti, mie: tabMie, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, omologhe: tabOmologhe, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
 }
 function apri(tit, html) { $('#dtit').textContent = tit; $('#dcorpo').innerHTML = html; $('#drawer').classList.add('on'); $('#drawer').scrollTop = 0; }
 function chiudi() { $('#drawer').classList.remove('on'); }
@@ -300,6 +300,7 @@ function stampaVista(id) {
     return stampaHtml('Bonifici per beneficiario', `${periodo(f.dal, f.al)} · ${S.bonG.length} beneficiari · ${n} bonifici · ` + filtriTesto([['cerca', S.bq], ['beneficiari', {gestore: 'solo Gestori', altro: 'solo altri'}[S.bt]], ['stato', S.bs]]) + ' · i dettagli sono stampati per i beneficiari aperti', corpo); }
   if (id === 'ade') { const f = S.fa; return stampaHtml('Condivise – sottotappe delle procedure condivise', `${n} righe · vista ${f.v === 'griglia' ? 'a griglia' : 'a elenco'} · ` + filtriTesto([['cerca', f.q], ['responsabile', f.r], ['stato', f.s], ['sottotappa', f.a ? ((S.ade || []).find(x => String(x.id) === String(f.a)) || {}).nome : '']]), tabellaStampa('ade')); }
   if (id === 'reg') return stampaHtml('Registro modifiche', `${n} modifiche`, tabellaStampa('reg'));
+  if (id === 'om') { const f = S.fom || {}; return stampaHtml('Omologhe e insinuazione del compenso OCC', `${n} procedure · ` + filtriTesto([['cerca', f.q], ['situazione', f.s], ['esito', f.e], ['omologa dal', data(f.dal)], ['al', data(f.al)]]), tabellaStampa('om')); }
 }
 const btnStampa = id => `<button class="b2" onclick="stampaVista('${id}')" title="Stampa l'elenco con i filtri attuali; per il PDF scegli «Salva come PDF» come stampante">Stampa / PDF</button>`;
 
@@ -564,12 +565,14 @@ function apriMiaProcedura(pid) {   // tutti i dati della procedura in un'unica s
    ${riga('Advisor', h(p.advisor))}${riga('PEC della procedura', h(p.pec))}${riga('Utente PEC', h(p.pec_username))}${riga('Licenze Lexdebita attivate il', data(p.licenze_lexdebita))}
    ${riga('Condivisa con il Gruppo', p.condivisa ? 'sì' : '')}</table>
    <div class="azioni"><button class="b" onclick="apriTappe(${pid})">Tappe e sottotappe${p.avanzamento_pct != null ? ' (' + p.avanzamento_pct + '%)' : ''}</button></div></div>
+  <div id="esitoTrib"></div>
   <div class="box"><h3>Debitori (${deb.length})</h3><table><thead><tr><th>Debitore</th><th>Codice fiscale</th><th>Residenza</th><th>Telefono</th><th>E-mail</th></tr></thead><tbody>
    ${deb.map(d => `<tr><td>${h(String(d.cognome || '').toUpperCase())} ${h(d.nome || '')}${d.ruolo === 'familiare' ? ' <span class="tag">familiare</span>' : ''}</td><td>${h(d.codice_fiscale || '')}</td><td class="wrap">${h(d.residenza || '')}</td><td>${h(d.telefono || '')}</td><td class="wrap">${h(d.email || '')}</td></tr>`).join('')}</tbody></table></div>
   ${p.mia && S.mieInc ? `<div class="box"><h3>Versamenti del debitore all'OCC (${l.length})</h3>${l.length ? `<table><thead><tr><th>Data</th><th class="n">Importo €</th></tr></thead><tbody>${l.map(i => `<tr><td>${data(i.data_contabile)}</td><td class="n">${euro(i.importo)}</td></tr>`).join('')}</tbody>
    <tfoot><tr><td>Totale versato</td><td class="n">${euro(somma(l, i => i.importo))}</td></tr></tfoot></table>` : '<p class="nota">Nessun versamento registrato.</p>'}
    <p class="nota">Importi lordi (IVA compresa) dall'estratto conto dell'OCC, aggiornati ogni settimana.</p></div>` : ''}
   <p class="nota">Dati dell'archivio dell'OCC. Se qualcosa non torna, scrivere a occ@modellocanavese.it.</p>`);
+  caricaEsitoTrib(pid);
 }
 function apriVersato(pid) {
   const p = S.mie.find(x => x.procedura_id === pid) || {}, l = [...(S.mieInc[pid] || [])].sort((a, b) => b.data_contabile.localeCompare(a.data_contabile));
@@ -579,6 +582,64 @@ function apriVersato(pid) {
    <p class="nota">Importi lordi (IVA compresa) dall'estratto conto dell'OCC, aggiornati ogni settimana. Per dubbi scrivere a occ@modellocanavese.it.</p></div>`);
 }
 async function scegliAnteprima(gid) { if (!gid) return; try { await api.rpc('anteprima_scegli', {gid: Number(gid)}); } catch (e) { return toast('Errore: ' + e.message); } S.pq = ''; S.pf = false; S.mieIds = null; entra(); }
+
+// ---------- OMOLOGHE (v31, db v10n): esiti in Tribunale e insinuazione del compenso OCC (vista v_omologhe) ----------
+const SIT_OM = ['da insinuare entro la scadenza', 'scaduta senza insinuazione', 'insinuazione non fatta', 'comunicazione non pervenuta', 'in attesa della comunicazione', 'istanza a fine procedura', 'insinuata', 'incassato tutto', 'nulla da insinuare', 'insinuazione non necessaria', 'non ammessa'];
+const sitTag = s => { const c = ['da insinuare entro la scadenza', 'scaduta senza insinuazione', 'insinuazione non fatta'].includes(s) ? 'e' : ['comunicazione non pervenuta', 'in attesa della comunicazione', 'istanza a fine procedura'].includes(s) ? 'w' : '';
+  return s ? `<span class="tag ${c}">${h(s)}</span>` : ''; };
+const ESITO_BREVE = e => String(e || '').replace(/^\d+\s*–\s*/, '');
+async function tabOmologhe() {
+  $('#main').innerHTML = 'Caricamento…';
+  try { S.om = await api.list('v_omologhe', {order: [['data_omologa', false]]}); } catch (e) { $('#main').innerHTML = `<div class="avviso">Vista v_omologhe non disponibile: ${h(e.message)}</div>`; return; }
+  const f = S.fom || (S.fom = {}), conta = {};
+  S.om.forEach(r => conta[r.situazione] = (conta[r.situazione] || 0) + 1);
+  const esiti = [...new Set(S.om.map(r => r.esito).filter(Boolean))].sort();
+  $('#main').innerHTML = `<div class="filtri">
+   <label>Cerca<input id="oq" placeholder="protocollo, debitore, Gestore, liquidatore, giudice" value="${h(f.q)}" size="34"></label>
+   <label>Situazione insinuazione<select id="os">${opt(SIT_OM.filter(s => conta[s]).map(s => [s, `${s} (${conta[s]})`]), f.s, 'tutte')}</select></label>
+   <label>Esito<select id="oe">${opt(esiti.map(e => [e, ESITO_BREVE(e)]), f.e, 'tutti')}</select></label>
+   <label>Omologa dal<input type="date" id="odal" value="${h(f.dal)}"></label><label>al<input type="date" id="oal" value="${h(f.al)}"></label>
+   <button class="b2" onclick="scaricaCSV('omologhe_' + oggi() + '.csv', S.rows_om || [])">Esporta CSV</button>${btnStampa('om')}</div>
+   <p class="nota">Dal registro OMOLOGHE (scheda del foglio lista-80), importato il 17/11/2026. Clic su una riga per aprire la procedura. In rosso le insinuazioni da fare o mancate, in arancio quelle in attesa.</p><div id="lista"></div>`;
+  ['oq', 'os', 'oe', 'odal', 'oal'].forEach(id => $('#' + id).addEventListener(id === 'oq' ? 'input' : 'change', disegnaOm));
+  disegnaOm();
+}
+S.ridisegna_om = () => disegnaOm();
+function disegnaOm() {
+  const f = S.fom = {q: $('#oq').value.trim().toLowerCase(), s: $('#os').value, e: $('#oe').value, dal: $('#odal').value, al: $('#oal').value};
+  const righe = S.om.filter(r => (!f.q || [r.protocollo, r.debitori, r.gestore_attuale, r.gestore_registro, r.liquidatore, r.giudice].join(' ').toLowerCase().includes(f.q))
+    && (!f.s || r.situazione === f.s) && (!f.e || r.esito === f.e) && (!f.dal || (r.data_omologa && r.data_omologa >= f.dal)) && (!f.al || (r.data_omologa && r.data_omologa <= f.al)));
+  $('#lista').innerHTML = `<div class="conta">${righe.length} procedure su ${S.om.length} · credito OCC indicato: € ${euro(somma(righe, r => r.credito_occ))}</div>` + tabella('om', [
+    {t: 'Protocollo', v: r => r.protocollo}, {t: 'Debitori', v: r => r.debitori, w: 1},
+    {t: 'Esito', v: r => r.esito, f: r => `<span title="${h(r.esito)}">${h(ESITO_BREVE(r.esito))}</span>`},
+    {t: 'Data\nomologa', v: r => r.data_omologa || '', f: r => data(r.data_omologa)},
+    {t: 'Situazione', v: r => SIT_OM.indexOf(r.situazione), f: r => sitTag(r.situazione)},
+    {t: 'Gestore', tip: 'Gestore attuale nel database (tra parentesi il GESTORE 1 del registro, se diverso)', v: r => r.gestore_attuale,
+     f: r => h(r.gestore_attuale || '') + (r.gestore_registro && !String(r.gestore_attuale || '').toUpperCase().includes(String(r.gestore_registro).toUpperCase().split(' ')[0]) ? ` <span class="nota">(registro: ${h(r.gestore_registro)})</span>` : '')},
+    {t: 'Liquidatore /\ncommissario', v: r => r.liquidatore},
+    {t: 'Comunicazione\nliquidatore', v: r => r.data_comunicazione || '', f: r => data(r.data_comunicazione)},
+    {t: 'Scadenza\ninsinuazione', v: r => r.scadenza_insinuazione || '', f: r => data(r.scadenza_insinuazione)},
+    {t: 'Insinuazione\nOCC', v: r => r.data_insinuazione || '', f: r => data(r.data_insinuazione)},
+    {t: 'Credito OCC €', n: 1, tip: 'Credito OCC a saldo con IVA (anche non insinuato)', v: r => r.credito_occ == null ? -1 : Number(r.credito_occ), f: r => euro(r.credito_occ)},
+    {t: 'Giudice', v: r => r.giudice},
+    {t: 'Annotazioni e note', w: 1, v: r => [r.annotazioni_registro, r.note].filter(Boolean).join(' · '), f: r => h([r.annotazioni_registro, r.note].filter(Boolean).join(' · ')) + (r.da_verificare ? ` <span class="tag w" title="${h(r.da_verificare)}" style="cursor:help">nota di controllo</span>` : '')}],
+    righe, 'apriOmRiga');
+}
+function apriOmRiga(r) { apriProcedura(r.procedura_id); }
+// riquadro «Esito in Tribunale» nella scheda della procedura (admin e Gestori: RLS di occ.omologhe)
+async function caricaEsitoTrib(pid) {
+  const el = () => $('#esitoTrib');
+  let l = [];
+  try { l = await api.list('v_omologhe', {f: [['eq', 'procedura_id', pid]], order: [['data_omologa', false]]}); } catch (e) { return; }
+  if (!el() || !l.length) return;
+  const riga = (k, v) => v == null || v === '' ? '' : `<tr><th style="text-align:left;width:38%">${k}</th><td>${v}</td></tr>`;
+  el().innerHTML = l.map(o => `<div class="box"><h3>Esito in Tribunale</h3><table>
+   ${riga('Esito', h(o.esito))}${riga('Data sentenza / omologa', data(o.data_omologa))}${riga('Giudice delegato', h(o.giudice))}${riga('Liquidatore / commissario', h(o.liquidatore))}
+   ${riga('PEC della procedura', h(o.pec_procedura))}${riga('Comunicazione del liquidatore', data(o.data_comunicazione))}${riga('Scadenza per l\'insinuazione', data(o.scadenza_insinuazione))}
+   ${riga('Insinuazione / istanza dell\'OCC', data(o.data_insinuazione))}${riga('Credito OCC (con IVA)', o.credito_occ != null ? euro(o.credito_occ) + ' €' : '')}
+   ${riga('Situazione', sitTag(o.situazione))}${riga('Annotazioni del registro', h(o.annotazioni_registro))}${riga('Note', h(o.note))}</table>
+   <p class="nota">Dal registro OMOLOGHE dell'OCC.</p></div>`).join('');
+}
 
 // ---------- MONITORAGGIO (v9t): Gestori a cui chiedere l'aggiornamento delle tappe e loro pratiche ----------
 S.monAp = {};
@@ -688,6 +749,7 @@ async function apriProcedura(id) {
   </div><div class="azioni"><button class="b" onclick="salva(salvaProc,this)">Salva procedura</button>
   ${p.lexdebita_stato ? `<span class="nota">Lexdebita: ${h(p.lexdebita_tipo || '')} · ${h(p.lexdebita_stato)} · DGSTAT ${h(p.lexdebita_dgstat || '')} (letto il ${data(p.lexdebita_letto_il)})</span>` : ''}</div></div>
 
+  <div id="esitoTrib"></div>
   ${S.avz && S.avz[id] ? `<div class="box"><h3>Avanzamento dell'istruttoria</h3>${avzCella(id)} <button class="b2" style="margin-left:10px" onclick="apriTappe(${id})">Gestisci le tappe</button></div>` : ''}
 
   <div class="box"><h3>Debitori</h3>${deb.map(d => `<div id="deb${d.id}" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><div class="griglia">
@@ -721,6 +783,7 @@ async function apriProcedura(id) {
   <div class="box"><h3>Incassi (${inc.length})</h3>${inc.length ? `<table><thead><tr><th>Data</th><th class="n">Importo</th><th>Destinazione</th><th>Descrizione</th></tr></thead><tbody>
   ${inc.map(i => `<tr class="cl" onclick="apriIncasso(${i.id})"><td>${data(i.data_contabile)}</td><td class="n">${euro(i.importo)}</td><td>${h(i.destinazione)}${i.gestore_forzato_id ? ' → ' + h(nomeG(i.gestore_forzato_id)) : ''}</td><td class="wrap">${h(i.descrizione)}</td></tr>`).join('')}</tbody>
   <tfoot><tr><td>Totale</td><td class="n">${euro(somma(inc, i => i.importo))}</td><td colspan="2"></td></tr></tfoot></table>` : '<span class="nota">Nessuno</span>'}</div>`);
+  caricaEsitoTrib(id);
 }
 async function salvaProc() {
   const {p} = S.p, n = leggi('#fproc'), patch = diff(p, n);
