@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v31, 17/11/2026: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v32, 17/11/2026: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -584,8 +584,8 @@ function apriVersato(pid) {
 async function scegliAnteprima(gid) { if (!gid) return; try { await api.rpc('anteprima_scegli', {gid: Number(gid)}); } catch (e) { return toast('Errore: ' + e.message); } S.pq = ''; S.pf = false; S.mieIds = null; entra(); }
 
 // ---------- OMOLOGHE (v31, db v10n): esiti in Tribunale e insinuazione del compenso OCC (vista v_omologhe) ----------
-const SIT_OM = ['da insinuare entro la scadenza', 'scaduta senza insinuazione', 'insinuazione non fatta', 'comunicazione non pervenuta', 'in attesa della comunicazione', 'istanza a fine procedura', 'insinuata', 'incassato tutto', 'nulla da insinuare', 'insinuazione non necessaria', 'non ammessa'];
-const sitTag = s => { const c = ['da insinuare entro la scadenza', 'scaduta senza insinuazione', 'insinuazione non fatta'].includes(s) ? 'e' : ['comunicazione non pervenuta', 'in attesa della comunicazione', 'istanza a fine procedura'].includes(s) ? 'w' : '';
+const SIT_OM = ['da insinuare entro la scadenza', 'scaduta senza insinuazione', 'insinuazione non fatta', 'comunicazione non pervenuta', 'in attesa della comunicazione', 'in attesa dell\'esito', 'istanza a fine procedura', 'insinuata', 'incassato tutto', 'nulla da insinuare', 'insinuazione non necessaria', 'non ammessa'];
+const sitTag = s => { const c = ['da insinuare entro la scadenza', 'scaduta senza insinuazione', 'insinuazione non fatta'].includes(s) ? 'e' : ['comunicazione non pervenuta', 'in attesa della comunicazione', 'in attesa dell\'esito', 'istanza a fine procedura'].includes(s) ? 'w' : '';
   return s ? `<span class="tag ${c}">${h(s)}</span>` : ''; };
 const ESITO_BREVE = e => String(e || '').replace(/^\d+\s*–\s*/, '');
 async function tabOmologhe() {
@@ -600,7 +600,7 @@ async function tabOmologhe() {
    <label>Esito<select id="oe">${opt(esiti.map(e => [e, ESITO_BREVE(e)]), f.e, 'tutti')}</select></label>
    <label>Omologa dal<input type="date" id="odal" value="${h(f.dal)}"></label><label>al<input type="date" id="oal" value="${h(f.al)}"></label>
    <button class="b2" onclick="scaricaCSV('omologhe_' + oggi() + '.csv', S.rows_om || [])">Esporta CSV</button>${btnStampa('om')}</div>
-   <p class="nota">Dal registro OMOLOGHE (scheda del foglio lista-80), importato il 17/11/2026. Clic su una riga per aprire la procedura. In rosso le insinuazioni da fare o mancate, in arancio quelle in attesa.</p><div id="lista"></div>`;
+   <p class="nota">Dal registro OMOLOGHE (scheda del foglio lista-80) e dalle cartelle OMOLOGHE_INSINUAZIONI (rigetti, depositate), 17/11/2026. Clic su una riga per aprire la procedura. In rosso le insinuazioni da fare o mancate, in arancio quelle in attesa.</p><div id="lista"></div>`;
   ['oq', 'os', 'oe', 'odal', 'oal'].forEach(id => $('#' + id).addEventListener(id === 'oq' ? 'input' : 'change', disegnaOm));
   disegnaOm();
 }
@@ -609,7 +609,7 @@ function disegnaOm() {
   const f = S.fom = {q: $('#oq').value.trim().toLowerCase(), s: $('#os').value, e: $('#oe').value, dal: $('#odal').value, al: $('#oal').value};
   const righe = S.om.filter(r => (!f.q || [r.protocollo, r.debitori, r.gestore_attuale, r.gestore_registro, r.liquidatore, r.giudice].join(' ').toLowerCase().includes(f.q))
     && (!f.s || r.situazione === f.s) && (!f.e || r.esito === f.e) && (!f.dal || (r.data_omologa && r.data_omologa >= f.dal)) && (!f.al || (r.data_omologa && r.data_omologa <= f.al)));
-  $('#lista').innerHTML = `<div class="conta">${righe.length} procedure su ${S.om.length} · credito OCC indicato: € ${euro(somma(righe, r => r.credito_occ))}</div>` + tabella('om', [
+  $('#lista').innerHTML = `<div class="conta">${righe.length} esiti su ${S.om.length} · credito OCC indicato: € ${euro(somma(righe, r => r.credito_occ))}</div>` + tabella('om', [
     {t: 'Protocollo', v: r => r.protocollo}, {t: 'Debitori', v: r => r.debitori, w: 1},
     {t: 'Esito', v: r => r.esito, f: r => `<span title="${h(r.esito)}">${h(ESITO_BREVE(r.esito))}</span>`},
     {t: 'Data\nomologa', v: r => r.data_omologa || '', f: r => data(r.data_omologa)},
@@ -638,7 +638,7 @@ async function caricaEsitoTrib(pid) {
    ${riga('PEC della procedura', h(o.pec_procedura))}${riga('Comunicazione del liquidatore', data(o.data_comunicazione))}${riga('Scadenza per l\'insinuazione', data(o.scadenza_insinuazione))}
    ${riga('Insinuazione / istanza dell\'OCC', data(o.data_insinuazione))}${riga('Credito OCC (con IVA)', o.credito_occ != null ? euro(o.credito_occ) + ' €' : '')}
    ${riga('Situazione', sitTag(o.situazione))}${riga('Annotazioni del registro', h(o.annotazioni_registro))}${riga('Note', h(o.note))}</table>
-   <p class="nota">Dal registro OMOLOGHE dell'OCC.</p></div>`).join('');
+   <p class="nota">Dal registro OMOLOGHE dell'OCC e dai provvedimenti in archivio.</p></div>`).join('');
 }
 
 // ---------- MONITORAGGIO (v9t): Gestori a cui chiedere l'aggiornamento delle tappe e loro pratiche ----------
