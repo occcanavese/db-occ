@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v32, 17/11/2026: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v33, 17/11/2026: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -538,7 +538,7 @@ function disegnaMie() {
   if (!$('#pq')) return;
   S.pq = $('#pq').value.trim().toLowerCase(); S.pf = $('#pf').checked; S.pi = $('#pi').checked; S.pc = $('#pc').checked;
   const mie = S.mieVista !== 'colleghi';
-  const r = S.mie.filter(p => p.mia === mie && (!S.pq || [p.debitori, p.protocollo_lexdebita, p.gestore].join(' ').toLowerCase().includes(S.pq))
+  const r = S.mie.filter(p => p.mia === mie && (!S.pq || [p.debitori, p.protocollo_lexdebita, p.gestore, p.pec, p.pec_username].join(' ').toLowerCase().includes(S.pq))
     && (!S.pf || p.ferma) && (!S.pi || p.lexdebita_stato === 'Assegnata al gestore') && (S.pc || p.fase !== 'chiusa'))
     .sort((a, b) => String(a.protocollo_lexdebita || '').localeCompare(String(b.protocollo_lexdebita || ''), 'it', {numeric: true}));
   $('#lista').innerHTML = `<div class="conta">${r.length} procedure</div>` + tabella('mie', [
@@ -547,6 +547,7 @@ function disegnaMie() {
     {t: 'Tipo', v: p => p.lexdebita_tipo || p.tipo},
     {t: 'Stato Lexdebita', v: p => p.lexdebita_stato},
     {t: 'Gestore', v: p => p.gestore, f: p => h(p.gestore || '') + (String(p.gestore || '').includes(' + ') ? ' <span class="tag">in coppia</span>' : '')},
+    ...(!mie ? [{t: 'Nome PEC', v: p => p.pec, f: p => pecCella(p, 'pec')}, {t: 'Utente PEC', v: p => p.pec_username, f: p => pecCella(p, 'pec_username')}] : []),
     ...(S.mieInc && mie ? [{t: 'Versato €', n: 1, tip: 'Totale dei bonifici del debitore incassati dall\'OCC; clic sull\'importo per l\'elenco', v: p => somma(S.mieInc[p.procedura_id] || [], i => i.importo),
       f: p => { const l = S.mieInc[p.procedura_id] || []; return l.length ? `<a href="#" onclick="event.stopPropagation();apriVersato(${p.procedura_id});return false" title="Vedi i versamenti">${euro(somma(l, i => i.importo))}</a> <span class="nota">(${l.length})</span>` : '<span class="nota">—</span>'; }}] : []),
     {t: 'Tappe', v: p => 0, f: p => `<button class="b" style="padding:3px 10px" onclick="event.stopPropagation();apriTappe(${p.procedura_id})" title="Aggiorna tappe e sottotappe (monitoraggio)">Tappe ▸</button>`},
@@ -554,6 +555,25 @@ function disegnaMie() {
     {t: 'Ultimo aggiornamento', v: p => p.ultimo_aggiornamento || '', f: p => p.avanzamento_pct == null ? '' : p.ultimo_aggiornamento ? data(p.ultimo_aggiornamento) + (p.ferma ? ' <span class="tag w">da aggiornare</span>' : '') : '<span class="tag w">mai</span>'}], r, 'apriMiaRiga');
 }
 S.ridisegna_mie = () => disegnaMie();
+// v33 (db v10q): PEC delle condivise – la modificano solo i Volenterosi (e l'admin), solo sulle procedure condivise (rpc aggiorna_pec_condivisa)
+function pecScrivibile(p) { return !!p.condivisa && S.me && (S.me.ruolo === 'volenteroso' || S.me.ruolo === 'admin'); }
+function pecCella(p, k) { const v = h(p[k] || '');
+  return pecScrivibile(p) ? `<a href="#" onclick="event.stopPropagation();apriPec(${p.procedura_id});return false" title="Modifica nome e utente della PEC">${v || '<span class="nota">+ aggiungi</span>'}</a>` : (v || '<span class="nota">—</span>'); }
+function apriPec(pid) {
+  const p = S.mie.find(x => x.procedura_id === pid) || {}; if (!pecScrivibile(p)) return toast('Modifica non consentita', 1);
+  apri(`PEC – ${p.protocollo_lexdebita || ''} ${p.debitori || ''}`, `<div class="box"><h3>PEC della procedura condivisa</h3>
+   <label>Nome PEC (indirizzo)<input id="pecNome" value="${h(p.pec || '')}" size="40"></label><br>
+   <label>Utente PEC<input id="pecUtente" value="${h(p.pec_username || '')}" size="40"></label>
+   <p class="nota">Solo indirizzo e nome utente: <b>mai la password</b>. La modifica resta nel registro modifiche.</p>
+   <div class="azioni"><button class="b" onclick="salvaPec(${pid})">Salva</button> <button class="b2" onclick="chiudi()">Annulla</button></div></div>`);
+}
+async function salvaPec(pid) {
+  const pec = $('#pecNome').value.trim(), ut = $('#pecUtente').value.trim();
+  if (pec && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(pec)) return toast('Indirizzo PEC non valido', 1);
+  try { await api.rpc('aggiorna_pec_condivisa', {pid, p_pec: pec, p_utente: ut}); } catch (e) { return toast('Errore: ' + e.message, 1); }
+  const p = S.mie.find(x => x.procedura_id === pid); if (p) { p.pec = pec || null; p.pec_username = ut || null; }
+  chiudi(); toast('PEC salvata'); disegnaMie();
+}
 function apriMiaRiga(p) { apriMiaProcedura(p.procedura_id); }
 function apriMiaProcedura(pid) {   // tutti i dati della procedura in un'unica scheda (sola lettura)
   const p = S.mie.find(x => x.procedura_id === pid) || {}, deb = p.debitori_dati || [], l = [...((S.mieInc || {})[pid] || [])].sort((a, b) => b.data_contabile.localeCompare(a.data_contabile));
