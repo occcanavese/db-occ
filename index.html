@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -520,6 +520,9 @@ async function tabMie() {
      <label style="display:inline-flex;gap:6px;align-items:center;margin-left:8px">Gestore <select onchange="scegliAnteprima(this.value)"><option value="">— scegli —</option>${gl.map(g => `<option value="${g.gestore_id}" ${g.gestore_id === S.me.gestore_id ? 'selected' : ''}>${h(g.gestore)} (${g.pratiche}${g.solo_ausiliario ? ', ausiliaria' : ''})</option>`).join('')}</select></label></div>`;
   }
   const colleghi = S.mie.some(x => !x.mia);
+  // v35: per chi è solo Ausiliaria (vede_come_ausiliario, es. D'ORSI) «Le mie» sono le procedure del Gestore che affianca
+  let ausil = false; if (S.me && S.me.vede_come_ausiliario) { const c = {}; S.mie.filter(x => x.mia && x.gestore).forEach(x => String(x.gestore).split(' + ').forEach(g => c[g] = (c[g] || 0) + 1));
+    ausil = Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] || true; }
   S.mieVista ||= 'mie'; if (!colleghi && S.mieVista === 'colleghi') S.mieVista = 'mie';
   const bt = (k, t) => `<button class="${S.mieVista === k ? 'b' : 'b2'}" onclick="S.mieVista='${k}';tabMie()">${t}</button>`;
   $('#main').innerHTML = ante + `<div class="azioni" style="margin:0 0 10px">${bt('mie', `Le mie procedure (${S.mieIds.size})`)}${colleghi ? bt('colleghi', `Condivise dei colleghi (${S.mie.length - S.mieIds.size})`) : ''}${bt('griglia', 'Griglia delle sottotappe')}</div>` + '<div id="mieCorpo"></div>';
@@ -528,7 +531,7 @@ async function tabMie() {
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pi" ${S.pi ? 'checked' : ''}> solo in istruttoria (assegnate al Gestore)</label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pf" ${S.pf ? 'checked' : ''}> solo da aggiornare (ferme)</label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pc" ${S.pc ? 'checked' : ''}> anche chiuse</label></div>
-   <div class="nota" style="margin-bottom:6px">${S.mieVista === 'mie' ? `Le procedure di cui risulta Gestore all'OCC. Per il <b>monitoraggio</b> premere «Tappe ▸» (o la percentuale): si aggiornano tappe e sottotappe e, se nulla è cambiato, «Verificata, nessuna novità». Clic sulla riga per tutti i dati (procedura, debitori, versamenti). Se una procedura manca o non è più Sua, lo segnali all'OCC (occ@modellocanavese.it).`
+   <div class="nota" style="margin-bottom:6px">${S.mieVista === 'mie' ? `${ausil ? `Le procedure del Gestore che affianca${ausil !== true ? ' (' + h(ausil) + ')' : ''}.` : 'Le procedure di cui risulta Gestore all\'OCC.'} Per il <b>monitoraggio</b> premere «Tappe ▸» (o la percentuale): si aggiornano tappe e sottotappe e, se nulla è cambiato, «Verificata, nessuna novità». Clic sulla riga per tutti i dati (procedura, debitori, versamenti). ${ausil ? 'Se una procedura manca' : 'Se una procedura manca o non è più Sua'}, lo segnali all'OCC (occ@modellocanavese.it).`
      : `Le procedure condivise dei colleghi del Gruppo: può aggiornare le sottotappe di cui si occupa (le tappe le aggiorna il Gestore della pratica).`}</div>
    <div id="lista"></div>`;
   ['pq'].forEach(id => $('#' + id).addEventListener('input', disegnaMie)); ['pi', 'pf', 'pc'].forEach(id => $('#' + id).addEventListener('change', disegnaMie));
