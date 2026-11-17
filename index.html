@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v33, 17/11/2026: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -547,7 +547,7 @@ function disegnaMie() {
     {t: 'Tipo', v: p => p.lexdebita_tipo || p.tipo},
     {t: 'Stato Lexdebita', v: p => p.lexdebita_stato},
     {t: 'Gestore', v: p => p.gestore, f: p => h(p.gestore || '') + (String(p.gestore || '').includes(' + ') ? ' <span class="tag">in coppia</span>' : '')},
-    ...(!mie ? [{t: 'Nome PEC', v: p => p.pec, f: p => pecCella(p, 'pec')}, {t: 'Utente PEC', v: p => p.pec_username, f: p => pecCella(p, 'pec_username')}] : []),
+    ...([{t: 'Nome PEC', v: p => p.pec, f: p => pecCella(p, 'pec')}, {t: 'Utente PEC', v: p => p.pec_username, f: p => pecCella(p, 'pec_username')}]),
     ...(S.mieInc && mie ? [{t: 'Versato €', n: 1, tip: 'Totale dei bonifici del debitore incassati dall\'OCC; clic sull\'importo per l\'elenco', v: p => somma(S.mieInc[p.procedura_id] || [], i => i.importo),
       f: p => { const l = S.mieInc[p.procedura_id] || []; return l.length ? `<a href="#" onclick="event.stopPropagation();apriVersato(${p.procedura_id});return false" title="Vedi i versamenti">${euro(somma(l, i => i.importo))}</a> <span class="nota">(${l.length})</span>` : '<span class="nota">—</span>'; }}] : []),
     {t: 'Tappe', v: p => 0, f: p => `<button class="b" style="padding:3px 10px" onclick="event.stopPropagation();apriTappe(${p.procedura_id})" title="Aggiorna tappe e sottotappe (monitoraggio)">Tappe ▸</button>`},
