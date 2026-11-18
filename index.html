@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -48,6 +48,10 @@ tfoot td{font-weight:600;position:sticky;bottom:0;background:var(--pane)}
 .sopra{background:var(--acc2)}
 #drawer{position:fixed;top:0;right:0;bottom:0;width:min(760px,100%);background:var(--bg);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.15);overflow:auto;transform:translateX(105%);transition:transform .2s;z-index:10}
 #drawer.on{transform:none}
+#drawer.largo{width:min(1200px,100%)}
+tr.tappa .fr{display:inline-block;width:16px;color:var(--acc);cursor:pointer;font-weight:700}
+tr.tappa .fr.vuota{cursor:default}
+.sotto-n{font-size:11px;color:var(--mute);cursor:pointer;margin-left:4px}
 #drawer .top{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--pane);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
 #drawer .top h2{margin:0;font-size:16px;flex:1}
 #drawer .corpo{padding:12px 16px}
@@ -246,7 +250,7 @@ function vai(t) {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   ({adempimenti: tabAdempimenti, mie: tabMie, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, omologhe: tabOmologhe, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
 }
-function apri(tit, html) { $('#dtit').textContent = tit; $('#dcorpo').innerHTML = html; $('#drawer').classList.add('on'); $('#drawer').scrollTop = 0; }
+function apri(tit, html, largo) { $('#drawer').classList.toggle('largo', !!largo); $('#dtit').textContent = tit; $('#dcorpo').innerHTML = html; $('#drawer').classList.add('on'); $('#drawer').scrollTop = 0; }
 function chiudi() { $('#drawer').classList.remove('on'); }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') chiudi(); });
 
@@ -423,13 +427,20 @@ function cambiaStatoTappa(k) {
 function rigaTappa(t, n) {
   const {per, tappeOk} = S.tp, k = t.id + '_' + n, r = per[k] || {}, st = r.stato || 'da fare', dt = st === 'in attesa documenti' ? r.data_richiesta : r.data_fine, vis = st === 'fatto' || st === 'in attesa documenti', sub = !!t.padre_id;
   const chi = [r.responsabile, r.con ? 'con ' + r.con : ''].filter(Boolean).join(' '), dis = !sub && !tappeOk ? 'disabled' : '';
-  return `<tr class="${sub ? 'sottotappa' : 'tappa'}"><td class="wrap" style="min-width:0;${sub ? 'padding-left:22px' : ''}">${sub ? '↳ ' + h(etichetta(t, n)) : `<b>${h(t.nome)}</b><br><span class="nota">fatta quando: ${h(t.quando_fatta || '')}</span>`}${t.chi_di_norma && n === 1 ? `<br><span class="nota">di norma: ${h(t.chi_di_norma)}</span>` : ''}${r.aggiornato_il ? `<br><span class="nota">agg. ${data(r.aggiornato_il)} ${h(r.aggiornato_da || '')}</span>` : ''}${sub ? '' : `<div id="tsug${t.id}"></div>`}</td>
+  const ns = sub ? 0 : S.tp.sotto.filter(x => x.padre_id === t.id).length, ap = S.tp.aperte.has(sub ? t.padre_id : t.id);
+  return `<tr class="${sub ? 'sottotappa' : 'tappa'}" ${sub ? `data-p="${t.padre_id}" style="${ap ? '' : 'display:none'}"` : ''}><td class="wrap" style="min-width:0;${sub ? 'padding-left:22px' : ''}">${sub ? '↳ ' + h(etichetta(t, n)) : `${ns ? `<span class="fr" id="tfr${t.id}" onclick="tpApri(${t.id})" title="Mostra / nascondi le sottotappe">${ap ? '▾' : '▸'}</span>` : '<span class="fr vuota"></span>'}<b>${h(t.nome)}</b>${ns ? ` <span class="sotto-n" onclick="tpApri(${t.id})">(${ns} sottotapp${ns === 1 ? 'a' : 'e'})</span>` : ''}<br><span class="nota">fatta quando: ${h(t.quando_fatta || '')}</span>`}${t.chi_di_norma && n === 1 ? `<br><span class="nota">di norma: ${h(t.chi_di_norma)}</span>` : ''}${r.aggiornato_il ? `<br><span class="nota">agg. ${data(r.aggiornato_il)} ${h(r.aggiornato_da || '')}</span>` : ''}${sub ? '' : `<div id="tsug${t.id}"></div>`}</td>
     <td class="n">${sub ? '' : Number(t.peso)}</td>
     <td><select style="width:100%" id="tst${k}" onchange="cambiaStatoTappa('${k}')" ${dis} ${dis ? 'title="Le tappe le aggiorna il Gestore della pratica"' : ''}>${opt(STATI_ATT, st)}</select></td>
     <td><input type="date" id="tdt${k}" value="${h(dt || '')}" style="width:100%;visibility:${vis ? 'visible' : 'hidden'}" ${dis} title="${st === 'in attesa documenti' ? 'data della richiesta dei documenti al debitore' : 'data di completamento'}"></td>
     <td><input id="tch${k}" value="${h(r.responsabile || '')}" placeholder="chi" style="width:100%" ${dis} title="${h(chi || 'chi se ne occupa')}"></td>
     <td style="white-space:normal"><textarea id="tno${k}" class="nota-tappa" rows="1" oninput="allunga(this)" ${dis} placeholder="${st === 'bloccato' ? 'motivo del blocco' : ''}">${h(r.note || '')}</textarea></td></tr>`;
 }
+function tpApri(id, on) {   // v37: apre / chiude le sottotappe di una tappa (le righe restano nella pagina, «Salva» le legge tutte)
+  const ap = on === undefined ? !S.tp.aperte.has(id) : on; ap ? S.tp.aperte.add(id) : S.tp.aperte.delete(id);
+  document.querySelectorAll(`#ftappe tr[data-p="${id}"]`).forEach(r => r.style.display = ap ? '' : 'none');
+  const f = $('#tfr' + id); if (f) f.textContent = ap ? '▾' : '▸';
+}
+function tpTutte(on) { S.tp.tappe.forEach(t => tpApri(t.id, on)); }
 function aggiungiRipetizione(aid) {   // pulsante +: una riga in più (si salva con «Salva»)
   const t = S.tp.sotto.find(x => x.id === aid), n = Math.max(0, ...S.tp.righe.filter(r => r.t.id === aid).map(r => r.n)) + 1;
   S.tp.righe.push({t, n, k: aid + '_' + n});
@@ -437,7 +448,7 @@ function aggiungiRipetizione(aid) {   // pulsante +: una riga in più (si salva 
   const st = $('#tst' + aid + '_' + n); st.value = 'fatto'; cambiaStatoTappa(aid + '_' + n); st.focus();
 }
 async function apriTappe(pid) {
-  apri('Avanzamento…', 'Caricamento…');
+  apri('Avanzamento…', 'Caricamento…', true);
   const [cat, righe, mon] = await Promise.all([
     api.list('attivita', {f: [['eq', 'attivo', true]], order: [['ordine'], ['id']]}),
     api.list('procedure_attivita', {f: [['eq', 'procedura_id', pid]]}),
@@ -450,7 +461,7 @@ async function apriTappe(pid) {
   tappe.forEach(t => { elenco.push({t, n: 1}); sotto.filter(x => x.padre_id === t.id).sort((x, y) => x.ordine - y.ordine).forEach(x => {
     const max = x.ripetibile ? Math.max(1, ...righe.filter(r => r.attivita_id === x.id).map(r => r.numero || 1)) : 1;
     for (let n = 1; n <= max; n++) elenco.push({t: x, n}); if (x.ripetibile) elenco.push({piu: x}); }); });
-  S.tp = {pid, tappe, sotto, per, mon: mon[0] || null, tappeOk, righe: elenco.filter(e => e.t).map(e => ({...e, k: e.t.id + '_' + e.n}))};
+  S.tp = {pid, tappe, sotto, per, mon: mon[0] || null, tappeOk, aperte: new Set(), righe: elenco.filter(e => e.t).map(e => ({...e, k: e.t.id + '_' + e.n}))};
   const pa_ = (S.elenco || []).find(r => r.procedura_id === pid) || (S.procAde || []).find(r => r.procedura_id === pid) || (S.mie || []).find(r => r.procedura_id === pid) || {};
   const deb = a.debitori || pa_.debitore || pa_.debitori || '', prot = pa_.protocollo || pa_.protocollo_lexdebita || a.protocollo_lexdebita || '';
   apri(`Avanzamento – ${prot} ${deb}`, `
@@ -459,16 +470,16 @@ async function apriTappe(pid) {
     <div class="nota">Gestore: <b>${h(a.gestore || pa_.gestore || '—')}</b>${a.nominato_il && a.nominato_il > '2005' ? ' (dal ' + data(a.nominato_il) + ')' : ''}<br>
     Ultimo aggiornamento: <b>${a.ultimo_aggiornamento ? data(a.ultimo_aggiornamento) : 'mai'}</b>${a.ferma ? ' <span class="tag w">ferma: nessun aggiornamento da 4 mesi</span>' : ''}
     ${a.tappe_in_attesa ? `<br><span class="tag w">in attesa documenti dal ${data(a.attesa_documenti_dal)} (${a.giorni_attesa_documenti} giorni)</span>` : ''}</div></div>
-    <div class="nota" style="margin-top:6px">Percentuale: contano solo le <b>tappe</b> (con il loro peso, totale 100): «fatto» e «non necessario» per intero, «in corso» e «in attesa di riscontro» a metà; «in attesa documenti» e «bloccato» non contano finché non si sbloccano. Le <b>sottotappe</b> (↳) sono il dettaglio di chi fa cosa e non cambiano la percentuale. Gli incontri successivi al primo si aggiungono con «+ aggiungi incontro».${tappeOk || ro ? '' : ' <b>Le tappe le aggiorna il Gestore della pratica</b>: qui puoi aggiornare le sottotappe.'}</div></div>
-  <div class="box" id="ftappe"><h3>Tappe e sottotappe</h3>
-  <table style="table-layout:fixed"><colgroup><col style="width:27%"><col style="width:42px"><col style="width:140px"><col style="width:128px"><col style="width:88px"><col></colgroup>
+    <div class="nota" style="margin-top:6px">Percentuale: contano solo le <b>tappe</b> (con il loro peso, totale 100): «fatto» e «non necessario» per intero, «in corso» e «in attesa di riscontro» a metà; «in attesa documenti» e «bloccato» non contano finché non si sbloccano. Le <b>sottotappe</b> (↳) sono il dettaglio di chi fa cosa e non cambiano la percentuale. Le sottotappe sono chiuse: si aprono con ▸ accanto alla tappa (o «Espandi tutte»). Gli incontri successivi al primo si aggiungono con «+ aggiungi incontro».${tappeOk || ro ? '' : ' <b>Le tappe le aggiorna il Gestore della pratica</b>: qui puoi aggiornare le sottotappe.'}</div></div>
+  <div class="box" id="ftappe"><h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="flex:1">Tappe e sottotappe</span><button class="b2" onclick="tpTutte(true)">Espandi tutte</button><button class="b2" onclick="tpTutte(false)">Chiudi tutte</button></h3>
+  <table style="table-layout:fixed"><colgroup><col style="width:30%"><col style="width:42px"><col style="width:140px"><col style="width:128px"><col style="width:88px"><col></colgroup>
   <thead><tr><th>Tappa / sottotappa</th><th class="n">Peso</th><th>Stato</th><th>Data</th><th>Chi</th><th>Nota</th></tr></thead><tbody>
-  ${elenco.map(e => e.piu ? (ro ? '' : `<tr class="sottotappa" id="tpiu${e.piu.id}"><td colspan="6" style="padding-left:22px"><button class="b2" onclick="aggiungiRipetizione(${e.piu.id})">+ aggiungi ${e.piu.codice === 'INCONTRO1' ? 'incontro' : 'riga'}</button></td></tr>`) : rigaTappa(e.t, e.n)).join('')}
+  ${elenco.map(e => e.piu ? (ro ? '' : `<tr class="sottotappa" id="tpiu${e.piu.id}" data-p="${e.piu.padre_id}" style="display:none"><td colspan="6" style="padding-left:22px"><button class="b2" onclick="aggiungiRipetizione(${e.piu.id})">+ aggiungi ${e.piu.codice === 'INCONTRO1' ? 'incontro' : 'riga'}</button></td></tr>`) : rigaTappa(e.t, e.n)).join('')}
   </tbody></table>
   <label style="display:block;margin-top:10px;font-size:12px;color:var(--mute)">Nota sulla pratica<textarea id="tnota" class="nota-tappa" style="min-height:60px;max-height:260px" oninput="allunga(this)" ${tappeOk ? '' : 'disabled'}>${h((S.tp.mon || {}).nota || '')}</textarea></label>
   <div class="azioni">${ro ? '<span class="nota"><b>Anteprima in sola lettura</b>: niente salvataggi.</span>' : `<button class="b" onclick="salva(salvaTappe,this)">Salva</button>
   ${tappeOk ? `<button class="b2" onclick="salva(confermaVerifica,this)" title="Registra che la pratica è stata verificata oggi anche se nessuna tappa è cambiata">Verificata, nessuna novità</button>` : ''}`}
-  ${S.me && (S.me.ruolo === 'admin' || S.me.ruolo === 'lettura') ? `<button class="b2" onclick="apriProcedura(${pid})">Scheda della procedura</button>` : ''}</div></div>`);
+  ${S.me && (S.me.ruolo === 'admin' || S.me.ruolo === 'lettura') ? `<button class="b2" onclick="apriProcedura(${pid})">Scheda della procedura</button>` : ''}</div></div>`, true);
   document.querySelectorAll('#dcorpo textarea.nota-tappa').forEach(allunga);
   suggerimentiTappe();
   if (ro) document.querySelectorAll('#dcorpo select, #dcorpo input, #dcorpo textarea').forEach(e => e.disabled = true);
