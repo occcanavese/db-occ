@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -236,7 +236,7 @@ async function entra() {
   if (S.me.cambio_password) return schermataPrimaPassword();
   const vol = S.me.ruolo === 'volenteroso', ante = S.me.ruolo === 'anteprima', gest = S.me.ruolo === 'gestore' || ante;
   if (vol || gest) S.tab = 'mie';
-  const schede = (gest || vol) ? [['mie', 'Le mie procedure']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['omologhe','Omologhe'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
+  const schede = (gest || vol) ? [['mie', 'Le mie procedure']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['omologhe','Omologhe'],['preventivi','Preventivi'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
   $('#app').innerHTML = `<header><h1>Database OCC</h1><nav>${schede.map(([k,t]) => `<button data-t="${k}" onclick="vai('${k}')">${t}</button>`).join('')}</nav>
   <span class="chi">${h(S.me.nome || utente.email)} · <a href="#" onclick="cambiaPassword();return false">cambia password</a> · <a href="#" onclick="esci();return false">esci</a></span></header><main id="main">Caricamento…</main>`;
   try {
@@ -248,7 +248,7 @@ async function entra() {
 function vai(t) {
   S.tab = t; chiudi();
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  ({adempimenti: tabAdempimenti, mie: tabMie, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, omologhe: tabOmologhe, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
+  ({adempimenti: tabAdempimenti, mie: tabMie, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, omologhe: tabOmologhe, preventivi: tabPreventivi, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
 }
 function apri(tit, html, largo) { $('#drawer').classList.toggle('largo', !!largo); $('#dtit').textContent = tit; $('#dcorpo').innerHTML = html; $('#drawer').classList.add('on'); $('#drawer').scrollTop = 0; }
 function chiudi() { $('#drawer').classList.remove('on'); }
@@ -304,6 +304,7 @@ function stampaVista(id) {
     return stampaHtml('Bonifici per beneficiario', `${periodo(f.dal, f.al)} · ${S.bonG.length} beneficiari · ${n} bonifici · ` + filtriTesto([['cerca', S.bq], ['beneficiari', {gestore: 'solo Gestori', altro: 'solo altri'}[S.bt]], ['stato', S.bs]]) + ' · i dettagli sono stampati per i beneficiari aperti', corpo); }
   if (id === 'ade') { const f = S.fa; return stampaHtml('Condivise – sottotappe delle procedure condivise', `${n} righe · vista ${f.v === 'griglia' ? 'a griglia' : 'a elenco'} · ` + filtriTesto([['cerca', f.q], ['responsabile', f.r], ['stato', f.s], ['sottotappa', f.a ? ((S.ade || []).find(x => String(x.id) === String(f.a)) || {}).nome : '']]), tabellaStampa('ade')); }
   if (id === 'reg') return stampaHtml('Registro modifiche', `${n} modifiche`, tabellaStampa('reg'));
+  if (id === 'prev') { const f = S.fprev || {}; return stampaHtml('Preventivi del compenso OCC', `${n} procedure · ` + filtriTesto([['cerca', f.q], ['stato', f.s], ['redatto dal', data(f.dal)], ['al', data(f.al)], ['solo con rate', f.r ? 'sì' : ''], ['solo con note di controllo', f.d ? 'sì' : '']]), tabellaStampa('prev')); }
   if (id === 'om') { const f = S.fom || {}; return stampaHtml('Omologhe e insinuazione del compenso OCC', `${n} procedure · ` + filtriTesto([['cerca', f.q], ['situazione', f.s], ['esito', f.e], ['omologa dal', data(f.dal)], ['al', data(f.al)]]), tabellaStampa('om')); }
 }
 const btnStampa = id => `<button class="b2" onclick="stampaVista('${id}')" title="Stampa l'elenco con i filtri attuali; per il PDF scegli «Salva come PDF» come stampante">Stampa / PDF</button>`;
@@ -675,6 +676,89 @@ async function caricaEsitoTrib(pid) {
    <p class="nota">Dal registro OMOLOGHE dell'OCC e dai provvedimenti in archivio.</p></div>`).join('');
 }
 
+// ---------- PREVENTIVI (v38, db v11d): preventivi del compenso OCC (vista v_preventivi_riepilogo, tabelle preventivi e preventivi_rate) ----------
+const STATI_PREV = ['non fatto', 'fatto, non firmato', 'firmato'];
+const prevTag = s => s ? `<span class="tag ${s === 'firmato' ? '' : s === 'non fatto' ? 'e' : 'w'}">${h(s)}</span>` : '';
+async function tabPreventivi() {
+  $('#main').innerHTML = 'Caricamento…';
+  try { S.prev = await api.list('v_preventivi_riepilogo', {order: [['procedura_id', true]]}); } catch (e) { $('#main').innerHTML = `<div class="avviso">Vista v_preventivi_riepilogo non disponibile: ${h(e.message)}</div>`; return; }
+  const f = S.fprev || (S.fprev = {}), conta = {};
+  S.prev.forEach(r => conta[r.stato_preventivo] = (conta[r.stato_preventivo] || 0) + 1);
+  $('#main').innerHTML = `<div class="filtri">
+   <label>Cerca<input id="pq" placeholder="protocollo, debitore, file" value="${h(f.q)}" size="30"></label>
+   <label>Stato del preventivo<select id="ps">${opt(STATI_PREV.filter(s => conta[s]).map(s => [s, `${s} (${conta[s]})`]), f.s, 'tutti')}</select></label>
+   <label>Redatto dal<input type="date" id="pdal" value="${h(f.dal)}"></label><label>al<input type="date" id="pal" value="${h(f.al)}"></label>
+   <label style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pr" ${f.r ? 'checked' : ''}>solo con rate</label>
+   <label style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pd" ${f.d ? 'checked' : ''}>solo con note di controllo</label>
+   <button class="b2" onclick="scaricaCSV('preventivi_' + oggi() + '.csv', S.rows_prev || [])">Esporta CSV</button>${btnStampa('prev')}</div>
+   <p class="nota">Preventivi del compenso OCC: per ogni procedura il preventivo che vale (firmato, altrimenti l'ultima versione). Importi IVA esclusa salvo dove indicato; acconti del 20% e 30% e saldo del 50% calcolati sul compenso con IVA. I preventivi unici di un nucleo familiare stanno sulla procedura capofila. Recupero dagli archivi del 19/11/2026. Clic su una riga per il dettaglio.</p><div id="lista"></div>`;
+  ['pq', 'ps', 'pdal', 'pal', 'pr', 'pd'].forEach(id => $('#' + id).addEventListener(id === 'pq' ? 'input' : 'change', disegnaPrev));
+  disegnaPrev();
+}
+S.ridisegna_prev = () => disegnaPrev();
+function disegnaPrev() {
+  const f = S.fprev = {q: $('#pq').value.trim().toLowerCase(), s: $('#ps').value, dal: $('#pdal').value, al: $('#pal').value, r: $('#pr').checked, d: $('#pd').checked};
+  const righe = S.prev.filter(r => (!f.q || [r.protocolli, r.debitori, r.file_preventivo, r.file_firmato].join(' ').toLowerCase().includes(f.q))
+    && (!f.s || r.stato_preventivo === f.s) && (!f.dal || (r.data_redazione && r.data_redazione >= f.dal)) && (!f.al || (r.data_redazione && r.data_redazione <= f.al))
+    && (!f.r || r.n_rate > 0) && (!f.d || r.dubbi));
+  const num = v => v == null ? -1 : Number(v);
+  $('#lista').innerHTML = `<div class="conta">${righe.length} procedure su ${S.prev.length} · compensi (IVA escl.): € ${euro(somma(righe.filter(r => !r.preventivo_della_capofila), r => r.compenso_netto))} · incassato: € ${euro(somma(righe, r => r.incassato))}</div>` + tabella('prev', [
+    {t: 'Protocolli', v: r => r.protocolli}, {t: 'Debitori', v: r => r.debitori, w: 1},
+    {t: 'Stato', v: r => STATI_PREV.indexOf(r.stato_preventivo), f: r => prevTag(r.stato_preventivo) + (r.n_preventivi > 1 ? ` <span class="nota" title="Preventivi separati, uno per debitore">${r.n_preventivi} preventivi</span>` : '')},
+    {t: 'Redatto il', v: r => r.data_redazione || '', f: r => data(r.data_redazione)},
+    {t: 'Firmato il', v: r => r.data_firma || '', f: r => data(r.data_firma)},
+    {t: 'Compenso €\n(IVA escl.)', n: 1, v: r => num(r.compenso_netto), f: r => r.preventivo_della_capofila ? `<span class="nota" title="Preventivo unico del nucleo: sta sulla procedura capofila">nel prev. della ${h(r.preventivo_della_capofila)}</span>` : euro(r.compenso_netto)},
+    {t: 'Con IVA €', n: 1, v: r => num(r.compenso_ivato), f: r => r.preventivo_della_capofila ? '' : euro(r.compenso_ivato)},
+    {t: 'Acconti\nricevuti €', n: 1, tip: 'Acconti già versati alla data del preventivo (IVA compresa)', v: r => num(r.acconti_ricevuti), f: r => r.preventivo_della_capofila ? '' : euro(r.acconti_ricevuti)},
+    {t: '1° acconto\ndovuto €', n: 1, tip: '20% del compenso con IVA, meno gli acconti già ricevuti', v: r => num(r.primo_acconto_dovuto), f: r => r.preventivo_della_capofila ? '' : euro(r.primo_acconto_dovuto)},
+    {t: '2° acconto\n30% €', n: 1, v: r => num(r.secondo_acconto), f: r => r.preventivo_della_capofila ? '' : euro(r.secondo_acconto)},
+    {t: 'Saldo\n50% €', n: 1, v: r => num(r.saldo), f: r => r.preventivo_della_capofila ? '' : euro(r.saldo)},
+    {t: 'Rate', n: 1, tip: 'Numero di rate concordate (prossima scadenza)', v: r => r.n_rate || 0, f: r => r.n_rate ? `${r.n_rate}${r.prossima_scadenza ? ` <span class="nota">(${data(r.prossima_scadenza)})</span>` : ''}` : ''},
+    {t: 'Incassato €', n: 1, tip: 'Versamenti del debitore registrati negli incassi (senza Finpiemonte)', v: r => num(r.incassato), f: r => euro(r.incassato)},
+    {t: 'Stato\nLexdebita', v: r => r.lexdebita_stato},
+    {t: 'Note', w: 1, v: r => r.dubbi || '', f: r => r.dubbi ? `<span class="tag w" title="${h(r.dubbi)}" style="cursor:help">nota di controllo</span>` : ''}],
+    righe, 'apriPrev');
+}
+function apriPrev(r) { apriPreventivo(r.procedura_id); }
+// dettaglio: i preventivi che valgono per la procedura (anche quello della capofila del nucleo) con le rate
+async function datiPreventivi(pid) {
+  const pv = await api.list('preventivi', {f: [['or', `procedura_id.eq.${pid},altre_procedure.cs.{${pid}}`]], order: [['vigente', false], ['versione', false]]});
+  const rate = pv.length ? await api.list('preventivi_rate', {f: [['in', 'preventivo_id', pv.map(v => v.id)]], order: [['preventivo_id'], ['n']]}) : [];
+  const dids = [...new Set(pv.map(v => v.debitore_id).filter(Boolean))];
+  const deb = dids.length ? await api.list('debitori', {f: [['in', 'id', dids]]}) : [];
+  return {pv, rate, deb};
+}
+function htmlPreventivi(pid, {pv, rate, deb}) {
+  if (!pv.length) return '<p class="nota">Nessun preventivo registrato per questa procedura.</p>';
+  const riga = (k, v) => v == null || v === '' ? '' : `<tr><th style="text-align:left;width:38%">${k}</th><td>${v}</td></tr>`;
+  return pv.map(v => {
+    const d = deb.find(x => x.id === v.debitore_id), rr = rate.filter(x => x.preventivo_id === v.id);
+    const tit = `Preventivo${d ? ' di ' + h(d.cognome + ' ' + d.nome) : ''} · versione ${v.versione}` + (v.vigente ? '' : ' · <span class="tag">non vigente</span>') + (v.procedura_id !== pid ? ` · <span class="nota">preventivo del nucleo, sulla procedura ${v.procedura_id}</span>` : '');
+    return `<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><b>${tit}</b><table>
+     ${riga('Stato', prevTag(v.stato === 'firmato' ? 'firmato' : v.stato) )}${riga('Redatto il', data(v.data_redazione))}${riga('Firmato il', data(v.data_firma) + (v.firma_modo ? ' (' + h(v.firma_modo) + ')' : ''))}
+     ${riga('Modello', h(v.modello))}${riga('Tipo ipotizzato', h(v.tipo_ipotizzato))}
+     ${riga('Compenso (IVA esclusa)', euro(v.compenso_netto) + ' €')}${riga('IVA ' + euro(v.aliquota_iva) + '%', euro(v.compenso_ivato - v.compenso_netto) + ' €')}${riga('Compenso con IVA', '<b>' + euro(v.compenso_ivato) + ' €</b>')}
+     ${riga('Acconti già ricevuti (IVA compresa)', euro(v.acconti_ricevuti) + ' €')}
+     ${riga('Primo acconto 20%', euro(v.primo_acconto) + ' € · dovuto ' + euro(Math.max(v.primo_acconto - v.acconti_ricevuti, 0)) + ' €')}${riga('Secondo acconto 30%', euro(v.secondo_acconto) + ' €')}${riga('Saldo 50%', euro(v.saldo) + ' €')}
+     ${v.altre_procedure && v.altre_procedure.length ? riga('Vale anche per le procedure', v.altre_procedure.join(', ')) : ''}
+     ${riga('File del preventivo', h(v.file_preventivo))}${riga('Copia firmata', h(v.file_firmato))}${riga('Note di controllo', h(v.dubbi))}${riga('Note', h(v.note))}</table>
+     ${rr.length ? `<table style="margin-top:6px"><thead><tr><th>Rata</th><th class="n">Importo €</th><th>Scadenza</th></tr></thead><tbody>${rr.map(x => `<tr><td>${x.n}</td><td class="n">${euro(x.importo)}</td><td>${x.scadenza ? data(x.scadenza) : h(x.descrizione)}</td></tr>`).join('')}</tbody>
+       <tfoot><tr><td>Totale rate</td><td class="n">${euro(somma(rr, x => x.importo))}</td><td></td></tr></tfoot></table>` : ''}</div>`;
+  }).join('') + '<p class="nota">Percorsi dei file a partire dalla cartella AAA_OCC-del-Canavese su raid6. Per correggere un preventivo chiedere a Claudia.</p>';
+}
+async function apriPreventivo(pid) {
+  const r = (S.prev || []).find(x => x.procedura_id === pid) || {};
+  apri(`Preventivo – ${r.protocolli || ''} ${r.debitori || ''}`, 'Caricamento…', true);
+  let dati; try { dati = await datiPreventivi(pid); } catch (e) { $('#dcorpo').innerHTML = `<div class="avviso">${h(e.message)}</div>`; return; }
+  $('#dcorpo').innerHTML = `<div class="box">${htmlPreventivi(pid, dati)}</div><div class="azioni"><button class="b2" onclick="apriProcedura(${pid})">Apri la procedura</button></div>`;
+}
+// riquadro «Preventivo» nella scheda della procedura
+async function caricaPrevProc(pid) {
+  let dati; try { dati = await datiPreventivi(pid); } catch (e) { return; }
+  if (!$('#prevProc') || !dati.pv.length) return;
+  $('#prevProc').innerHTML = `<div class="box"><h3>Preventivo</h3>${htmlPreventivi(pid, dati)}</div>`;
+}
+
 // ---------- MONITORAGGIO (v9t): Gestori a cui chiedere l'aggiornamento delle tappe e loro pratiche ----------
 S.monAp = {};
 async function caricaMonitoraggio() {
@@ -765,7 +849,7 @@ async function apriProcedura(id) {
     <label>Data della fase (se la cambi)<input type="date" id="datafase" value="${oggi()}"></label>
     ${spunta('fase_stimata', 'fase da verificare', p.fase_stimata)}
     ${campo('data_domanda', 'Data domanda', p.data_domanda, 'date')}
-    ${campo('preventivo', 'Preventivo (IVA escl.)', p.preventivo, 'num')}
+    <label title="Si aggiorna da solo dal preventivo vigente (scheda Preventivi): somma dei preventivi vigenti della procedura">Preventivo (IVA escl.)<input value="${h(p.preventivo != null ? euro(p.preventivo) : '')}" disabled></label>
     ${campo('attivo', 'Attivo', p.attivo, 'num')}${campo('passivo', 'Passivo', p.passivo, 'num')}
     ${campo('advisor', 'Advisor', p.advisor, 'text', 'l2')}
     ${campo('pec', 'PEC della procedura (solo indirizzo, mai la password)', p.pec, 'text', 'l2')}
@@ -783,6 +867,7 @@ async function apriProcedura(id) {
   </div><div class="azioni"><button class="b" onclick="salva(salvaProc,this)">Salva procedura</button>
   ${p.lexdebita_stato ? `<span class="nota">Lexdebita: ${h(p.lexdebita_tipo || '')} · ${h(p.lexdebita_stato)} · DGSTAT ${h(p.lexdebita_dgstat || '')} (letto il ${data(p.lexdebita_letto_il)})</span>` : ''}</div></div>
 
+  <div id="prevProc"></div>
   <div id="esitoTrib"></div>
   ${S.avz && S.avz[id] ? `<div class="box"><h3>Avanzamento dell'istruttoria</h3>${avzCella(id)} <button class="b2" style="margin-left:10px" onclick="apriTappe(${id})">Gestisci le tappe</button></div>` : ''}
 
@@ -817,7 +902,7 @@ async function apriProcedura(id) {
   <div class="box"><h3>Incassi (${inc.length})</h3>${inc.length ? `<table><thead><tr><th>Data</th><th class="n">Importo</th><th>Destinazione</th><th>Descrizione</th></tr></thead><tbody>
   ${inc.map(i => `<tr class="cl" onclick="apriIncasso(${i.id})"><td>${data(i.data_contabile)}</td><td class="n">${euro(i.importo)}</td><td>${h(i.destinazione)}${i.gestore_forzato_id ? ' → ' + h(nomeG(i.gestore_forzato_id)) : ''}</td><td class="wrap">${h(i.descrizione)}</td></tr>`).join('')}</tbody>
   <tfoot><tr><td>Totale</td><td class="n">${euro(somma(inc, i => i.importo))}</td><td colspan="2"></td></tr></tfoot></table>` : '<span class="nota">Nessuno</span>'}</div>`);
-  caricaEsitoTrib(id);
+  caricaEsitoTrib(id); caricaPrevProc(id);
 }
 async function salvaProc() {
   const {p} = S.p, n = leggi('#fproc'), patch = diff(p, n);
