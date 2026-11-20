@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v39, 20/11/2026: scheda «Finpiemonte» per l'admin (contributi regionali Misure A e B, db v11fp: elenco con avvisi, scadenze, controllo con la banca, dettaglio con la cronologia) e riquadro «Contributo Finpiemonte» nella scheda procedura; v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v40, 20/11/2026: incassi ↔ bonifici ai Gestori (db v11g): nella scheda «Incassi» quota dei Gestori, già pagato, data del bonifico, residuo e stato del pagamento (vista v_incassi_pagamenti), filtro «Pagamento Gestori»; nel dettaglio del movimento le quote per Gestore con pagato, residuo e bonifici (v_incassi_quote); «Da pagare» calcolata dal residuo (comprese le integrazioni, es. SCHIMICCI); «Crea bonifico» aggiunge sempre righe nuove (pagamenti in più volte); nel bonifico la colonna saldo/acconto; v39, 20/11/2026: scheda «Finpiemonte» per l'admin (contributi regionali Misure A e B, db v11fp: elenco con avvisi, scadenze, controllo con la banca, dettaglio con la cronologia) e riquadro «Contributo Finpiemonte» nella scheda procedura; v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -283,13 +283,14 @@ function stampaVista(id) {
   if (!n) return toast('Niente da stampare con questi filtri', true);
   if (id === 'proc') { const f = S.fp; return stampaHtml('Elenco procedure', `${n} debitori · ${periodo(f.dd, f.da)} (data domanda) · ` + filtriTesto([['cerca', f.q], ['anno', f.a], ['stato Lexdebita', f.f === '__nessuno' ? 'non su Lexdebita' : f.f], ['tipo', f.t], ['Gestore', f.g === '__nessuno' ? 'senza Gestore' : f.g], ['DGSTAT 2026', f.d]]), tabellaStampa('proc')); }
   if (id === 'gest') return stampaHtml('Gestori', `${n} Gestori · ` + filtriTesto([['cerca', S.gq], ['solo con procedure in carico', S.gc ? 'sì' : '']]), tabellaStampa('gest'));
-  if (id === 'inc') { const f = S.fi, r = S.rows_inc, ft = filtriTesto([['cerca', f.q], ['destinazione', f.d], ['solo entrate', f.e ? 'sì' : ''], ['senza procedura', f.s ? 'sì' : '']]);
-    if (f.g) { const corpo = `<table><thead><tr><th>Procedura / data</th><th class="n">Movimenti</th><th class="n">Importo €</th><th>Descrizione</th></tr></thead><tbody>${S.incG.map(x => `<tr><td><b>${x.et}</b></td><td class="n">${x.n}</td><td class="n"><b>${euro(x.tot)}</b></td><td></td></tr>`
-        + (S.incAperti.has(x.k) ? x.righe.map(m => `<tr><td>&nbsp;&nbsp;${data(m.data_contabile)}</td><td></td><td class="n">${euro(m.importo)}</td><td>${h(m.descrizione)}</td></tr>`).join('') : '')).join('')}</tbody>
-        <tfoot><tr><td>Totale</td><td class="n">${r.length}</td><td class="n">${euro(somma(r, i => i.importo))}</td><td></td></tr></tfoot></table>`;
+  if (id === 'inc') { const f = S.fi, r = S.rows_inc, ft = filtriTesto([['cerca', f.q], ['destinazione', f.d], ['solo entrate', f.e ? 'sì' : ''], ['senza procedura', f.s ? 'sì' : ''], ['pagamento Gestori', f.p === '__residuo' ? 'con residuo da pagare' : f.p]]);
+    if (f.g) { const P = !!S.pag, pp = m => { const p = pagI(m) || {}; return P ? `<td class="n">${euroSe(p.pagato)}</td><td class="n">${euroSe(p.residuo)}</td><td>${h(p.stato || '')}</td>` : ''; };
+      const corpo = `<table><thead><tr><th>Procedura / data</th><th class="n">Movimenti</th><th class="n">Importo €</th>${P ? '<th class="n">Pagato ai Gestori €</th><th class="n">Residuo €</th><th>Pagamento</th>' : ''}<th>Descrizione</th></tr></thead><tbody>${S.incG.map(x => `<tr><td><b>${x.et}</b></td><td class="n">${x.n}</td><td class="n"><b>${euro(x.tot)}</b></td>${P ? `<td class="n">${euroSe(x.pg)}</td><td class="n">${euroSe(x.rs)}</td><td></td>` : ''}<td></td></tr>`
+        + (S.incAperti.has(x.k) ? x.righe.map(m => `<tr><td>&nbsp;&nbsp;${data(m.data_contabile)}</td><td></td><td class="n">${euro(m.importo)}</td>${pp(m)}<td>${h(m.descrizione)}</td></tr>`).join('') : '')).join('')}</tbody>
+        <tfoot><tr><td>Totale</td><td class="n">${r.length}</td><td class="n">${euro(somma(r, i => i.importo))}</td>${P ? `<td class="n">${euro(somma(r, i => nz((pagI(i) || {}).pagato)))}</td><td class="n">${euro(somma(r, i => nz((pagI(i) || {}).residuo)))}</td><td></td>` : ''}<td></td></tr></tfoot></table>`;
       return stampaHtml('Incassi per procedura', `${periodo(f.dal, f.al)} · ${S.incG.length} procedure · ${n} movimenti · ${ft} · i movimenti sono stampati per le procedure aperte`, corpo); }
     return stampaHtml('Incassi', `${periodo(f.dal, f.al)} · ${n} movimenti · ` + ft,
-      tabellaStampa('inc', null, `<td>Totale</td><td class="n">${euro(somma(r, i => i.importo))}</td><td colspan="4"></td>`)); }
+      tabellaStampa('inc')); }
   if (id === 'ec') { const f = S.fec, r = [...S.rows_ec].sort((a, b) => a.data_contabile.localeCompare(b.data_contabile) || a.id - b.id);
     const ini = Number(r[0].saldo) - Number(r[0].importo), fin = Number(r[r.length - 1].saldo), ent = somma(r.filter(x => x.importo > 0), x => x.importo), usc = somma(r.filter(x => x.importo < 0), x => x.importo);
     const filtrato = f.q ? ' · <b>attenzione: elenco filtrato per «' + h(f.q) + '», il saldo progressivo resta quello del conto</b>' : '';
@@ -1157,57 +1158,84 @@ async function creaGestore() {
 // ---------- INCASSI ----------
 async function tabIncassi() {
   $('#main').innerHTML = 'Caricamento…';
-  [S.inc] = await Promise.all([api.list('incassi', {order: [['data_contabile', false], ['id', false]]}), S.elenco.length ? null : api.list('v_elenco_procedure').then(r => S.elenco = r)]);
+  [S.inc] = await Promise.all([api.list('incassi', {order: [['data_contabile', false], ['id', false]]}), S.elenco.length ? null : api.list('v_elenco_procedure').then(r => S.elenco = r),
+    api.list('v_incassi_pagamenti').then(r => { S.pag = {}; r.forEach(p => S.pag[p.incasso_id] = p); }).catch(e => { console.warn('pagamenti non disponibili', e); S.pag = null; })]);
   S.procMap = {}; S.elenco.forEach(r => { if (!S.procMap[r.procedura_id] || r.ruolo === 'principale') S.procMap[r.procedura_id] = r.protocollo + ' ' + r.debitore; });
-  const f = S.fi || (S.fi = {dal: '', al: '', q: '', d: '', s: false, e: true, g: true});
+  const f = S.fi || (S.fi = {dal: '', al: '', q: '', d: '', s: false, e: true, g: true, p: ''});
   S.incAperti = S.incAperti || new Set();
   $('#main').innerHTML = `<div class="filtri"><label>Cerca<input id="iq" value="${h(f.q)}" size="28" placeholder="descrizione, procedura, importo"></label>
    <label>Dal<input type="date" id="idal" value="${h(f.dal)}"></label><label>Al<input type="date" id="ial" value="${h(f.al)}"></label>
    <label>Destinazione<select id="id">${opt(['gestore', 'occ'], f.d, 'tutte')}</select></label>
+   ${S.pag ? `<label title="Stato del pagamento della quota ai Gestori (bonifici fatti, residuo)">Pagamento Gestori<select id="ip">${opt(STATI_PAG, f.p, 'tutti')}<option value="__residuo" ${f.p === '__residuo' ? 'selected' : ''}>con residuo da pagare</option></select></label>` : ''}
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="ie" ${f.e ? 'checked' : ''}> solo entrate</label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="is" ${f.s ? 'checked' : ''}> senza procedura</label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px" title="Una riga per procedura con il totale versato; clic sul nome per vedere i movimenti"><input type="checkbox" id="ig" ${f.g !== false ? 'checked' : ''}> raggruppa per procedura</label>
    <span id="igbtn"><button class="b2" onclick="incTutti(true)">Espandi tutti</button><button class="b2" onclick="incTutti(false)">Chiudi tutti</button></span>
-   <button class="b2" onclick="scaricaCSV('incassi_'+oggi()+'.csv',S.rows_inc.map(({_cls,...r})=>({...r,procedura:S.procMap[r.procedura_id]||''})))">Esporta CSV</button>${btnStampa('inc')}
+   <button class="b2" onclick="scaricaCSV('incassi_'+oggi()+'.csv',S.rows_inc.map(({_cls,...r})=>({...r,procedura:S.procMap[r.procedura_id]||'',...pagCSV(r)})))">Esporta CSV</button>${btnStampa('inc')}
    <button class="b" onclick="nuovoIncasso()">+ Nuovo movimento</button></div><div id="lista"></div>`;
-  ['iq', 'idal', 'ial', 'id', 'ie', 'is', 'ig'].forEach(id => $('#' + id).addEventListener(id === 'iq' ? 'input' : 'change', disegnaInc));
+  ['iq', 'idal', 'ial', 'id', 'ie', 'is', 'ig', 'ip'].forEach(id => $('#' + id) && $('#' + id).addEventListener(id === 'iq' ? 'input' : 'change', disegnaInc));
   disegnaInc();
 }
 S.ridisegna_inc = () => disegnaInc();
+// v40 (db v11g): pagamento della quota ai Gestori per ogni incasso (vista v_incassi_pagamenti)
+const STATI_PAG = ['da pagare', 'pagato in parte', 'pagato', 'pagato in più', 'sospeso', 'bonifico proposto', 'senza Gestore', 'senza procedura', "resta all'OCC"];
+const pagI = i => (S.pag && S.pag[i.id]) || null;
+const nz = v => Number(v || 0);
+function tagPag(p) {
+  if (!p || !p.stato) return '';
+  const c = {pagato: '', 'pagato in parte': 'w', 'da pagare': 'w', sospeso: 'w', 'bonifico proposto': 'w', 'pagato in più': 'e', 'senza Gestore': 'e'}[p.stato];
+  return c === undefined ? `<span class="nota">${h(p.stato)}</span>` : `<span class="tag ${c}" title="${h([p.gestori_pagati, p.residuo_a ? 'residuo a ' + p.residuo_a : ''].filter(Boolean).join(' · '))}">${h(p.stato)}</span>`;
+}
+const euroSe = v => nz(v) ? euro(v) : '';
+const pagCSV = i => { const p = pagI(i) || {}; return {gestori_spettanti: p.gestori_spettanti || '', quota_gestori: p.quota_spettante ?? '', gestori_pagati: p.gestori_pagati || '', pagato: p.pagato ?? '', data_bonifico: p.data_bonifico || '', in_attesa: p.in_attesa ?? '', residuo: p.residuo ?? '', residuo_a: p.residuo_a || '', differenza: p.differenza ?? '', stato_pagamento: p.stato || ''}; };
 // v27: incassi raggruppati per procedura (clic sul nome: si aprono i movimenti, con il totale versato)
 const incChiave = i => i.procedura_id ? 'p' + i.procedura_id : i.procedura_foglio ? 'f' + i.procedura_foglio : '-';
 const incEtichetta = i => i.procedura_id ? h(S.procMap[i.procedura_id] || 'procedura ' + i.procedura_id) : i.procedura_foglio ? `<span class="tag w">${h(i.procedura_foglio)}</span> <span class="nota">senza procedura collegata</span>` : '<span class="nota">(senza procedura)</span>';
 function incGruppi(r) {
   const m = new Map();
   r.forEach(i => { const k = incChiave(i); if (!m.has(k)) m.set(k, {k, nome: i.procedura_id ? (S.procMap[i.procedura_id] || '') : (i.procedura_foglio || '~'), et: incEtichetta(i), pid: i.procedura_id, righe: []}); m.get(k).righe.push(i); });
-  const g = [...m.values()]; g.forEach(x => { x.righe.sort((a, b) => b.data_contabile.localeCompare(a.data_contabile) || b.id - a.id); x.tot = somma(x.righe, i => i.importo); x.n = x.righe.length; x.ult = x.righe[0].data_contabile; });
-  const o = S.ord_incg || {c: 0, d: 1}, v = [x => x.nome, x => x.n, x => x.tot, x => x.ult][o.c];
+  const g = [...m.values()]; g.forEach(x => { x.righe.sort((a, b) => b.data_contabile.localeCompare(a.data_contabile) || b.id - a.id); x.tot = somma(x.righe, i => i.importo); x.n = x.righe.length; x.ult = x.righe[0].data_contabile; x.qg = somma(x.righe, i => nz((pagI(i) || {}).quota_spettante)); x.pg = somma(x.righe, i => nz((pagI(i) || {}).pagato)); x.rs = somma(x.righe, i => nz((pagI(i) || {}).residuo)); });
+  const o = S.ord_incg || {c: 0, d: 1}, v = [x => x.nome, x => x.n, x => x.tot, x => x.ult, x => x.qg, x => x.pg, x => x.rs][o.c];
   return g.sort((a, b) => { const x = v(a), y = v(b); return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'it', {numeric: true})) * o.d; });
 }
 function ordinaIncG(c) { const o = S.ord_incg || {c: 0, d: 1}; S.ord_incg = {c, d: o.c === c ? -o.d : (c ? -1 : 1)}; disegnaInc(); }
 function incApri(i) { const k = S.incG[i].k; S.incAperti.has(k) ? S.incAperti.delete(k) : S.incAperti.add(k); disegnaInc(); }
 function incTutti(si) { S.incAperti = new Set(si ? (S.incG || []).map(g => g.k) : []); disegnaInc(); }
 function disegnaInc() {
-  const f = S.fi = {q: $('#iq').value.trim().toLowerCase(), dal: $('#idal').value, al: $('#ial').value, d: $('#id').value, e: $('#ie').checked, s: $('#is').checked, g: $('#ig').checked};
+  const f = S.fi = {q: $('#iq').value.trim().toLowerCase(), dal: $('#idal').value, al: $('#ial').value, d: $('#id').value, e: $('#ie').checked, s: $('#is').checked, g: $('#ig').checked, p: $('#ip') ? $('#ip').value : ''};
   const r = S.inc.filter(i => (!f.q || [i.descrizione, i.note, S.procMap[i.procedura_id], i.procedura_foglio, euro(i.importo)].join(' ').toLowerCase().includes(f.q))
-    && (!f.dal || i.data_contabile >= f.dal) && (!f.al || i.data_contabile <= f.al) && (!f.d || i.destinazione === f.d) && (!f.e || i.importo > 0) && (!f.s || !i.procedura_id));
+    && (!f.dal || i.data_contabile >= f.dal) && (!f.al || i.data_contabile <= f.al) && (!f.d || i.destinazione === f.d) && (!f.e || i.importo > 0) && (!f.s || !i.procedura_id)
+    && (!f.p || (f.p === '__residuo' ? nz((pagI(i) || {}).residuo) > 0 : (pagI(i) || {}).stato === f.p)));
+  const tq = somma(r, i => nz((pagI(i) || {}).quota_spettante)), tp = somma(r, i => nz((pagI(i) || {}).pagato)), tr = somma(r, i => nz((pagI(i) || {}).residuo));
+  const contaPag = S.pag ? ` · quota Gestori € ${euro(tq)} · pagato € ${euro(tp)} · residuo € ${euro(tr)}` : '';
   $('#igbtn').style.display = f.g ? '' : 'none';
   if (f.g) {
     const g = S.incG = incGruppi(r); S.rows_inc = r;
     const o = S.ord_incg || {c: 0, d: 1}, fr = c => o.c === c ? (o.d > 0 ? ' ▲' : ' ▼') : '';
-    $('#lista').innerHTML = `<div class="conta">${g.length} procedure · ${r.length} movimenti · totale € ${euro(somma(r, i => i.importo))}</div>
-    <div class="tab"><table class="incg"><thead><tr><th onclick="ordinaIncG(0)">Procedura${fr(0)}</th><th onclick="ordinaIncG(1)" class="n">Movimenti${fr(1)}</th><th onclick="ordinaIncG(2)" class="n">Totale versato €${fr(2)}</th><th onclick="ordinaIncG(3)">Ultimo${fr(3)}</th><th>Dest.</th><th>Descrizione</th></tr></thead><tbody>
-    ${g.map((x, i) => { const ap = S.incAperti.has(x.k); return `<tr class="cl grp" onclick="incApri(${i})"><td><b>${ap ? '▾' : '▸'}</b> <b>${x.et}</b>${x.pid ? ` <a href="#" class="nota" onclick="event.stopPropagation();apriProcedura(${x.pid});return false">apri</a>` : ''}</td><td class="n">${x.n}</td><td class="n"><b>${euro(x.tot)}</b></td><td>${data(x.ult)}</td><td colspan="2"></td></tr>`
-      + (ap ? x.righe.map(m => `<tr class="cl sub" onclick="apriIncasso(${m.id})"><td>${data(m.data_contabile)}</td><td></td><td class="n">${euro(m.importo)}</td><td></td><td>${h(m.destinazione)}${m.finpiemonte ? ' <span class="tag">Finpiemonte</span>' : ''}${m.gestore_forzato_id ? ' → ' + h(nomeG(m.gestore_forzato_id)) : ''}</td><td class="wrap nota">${h(m.descrizione)}${m.note ? ' · ' + h(m.note) : ''}</td></tr>`).join('') : ''); }).join('')}</tbody>
-    <tfoot><tr><td>Totale</td><td class="n">${r.length}</td><td class="n">${euro(somma(r, i => i.importo))}</td><td colspan="3"></td></tr></tfoot></table></div>
-    <p class="nota">Clic sul nome della procedura: si aprono i movimenti con il totale versato; clic su un movimento: il dettaglio. Togli «raggruppa per procedura» per l'elenco semplice.</p>`;
+    const pc = S.pag ? 3 : 0, thP = S.pag ? `<th onclick="ordinaIncG(4)" class="n" title="Quota netta dei Gestori: importo / 1,22 × 70% / 1,04 (Finpiemonte senza IVA)">Quota Gestori €${fr(4)}</th><th onclick="ordinaIncG(5)" class="n" title="Bonifici fatti ai Gestori (netto)">Pagato €${fr(5)}</th><th onclick="ordinaIncG(6)" class="n" title="Quota ancora da pagare ai Gestori">Residuo €${fr(6)}</th>` : '';
+    const tdP = m => { const p = pagI(m) || {}; return S.pag ? `<td class="n">${euroSe(p.quota_spettante)}</td><td class="n" title="${h(p.gestori_pagati || '')}">${euroSe(p.pagato)}${p.data_bonifico ? ' <span class="nota">' + data(p.data_bonifico) + '</span>' : ''}</td><td class="n" title="${h(p.residuo_a || '')}">${nz(p.residuo) ? '<b>' + euro(p.residuo) + '</b>' : ''}</td>` : ''; };
+    $('#lista').innerHTML = `<div class="conta">${g.length} procedure · ${r.length} movimenti · totale € ${euro(somma(r, i => i.importo))}${contaPag}</div>
+    <div class="tab"><table class="incg"><thead><tr><th onclick="ordinaIncG(0)">Procedura${fr(0)}</th><th onclick="ordinaIncG(1)" class="n">Movimenti${fr(1)}</th><th onclick="ordinaIncG(2)" class="n">Totale versato €${fr(2)}</th><th onclick="ordinaIncG(3)">Ultimo${fr(3)}</th>${thP}<th>Dest. / pagamento</th><th>Descrizione</th></tr></thead><tbody>
+    ${g.map((x, i) => { const ap = S.incAperti.has(x.k); return `<tr class="cl grp" onclick="incApri(${i})"><td><b>${ap ? '▾' : '▸'}</b> <b>${x.et}</b>${x.pid ? ` <a href="#" class="nota" onclick="event.stopPropagation();apriProcedura(${x.pid});return false">apri</a>` : ''}</td><td class="n">${x.n}</td><td class="n"><b>${euro(x.tot)}</b></td><td>${data(x.ult)}</td>${S.pag ? `<td class="n">${euroSe(x.qg)}</td><td class="n">${euroSe(x.pg)}</td><td class="n">${x.rs ? '<b>' + euro(x.rs) + '</b>' : ''}</td>` : ''}<td colspan="2"></td></tr>`
+      + (ap ? x.righe.map(m => `<tr class="cl sub" onclick="apriIncasso(${m.id})"><td>${data(m.data_contabile)}</td><td></td><td class="n">${euro(m.importo)}</td><td></td>${tdP(m)}<td>${h(m.destinazione)}${m.finpiemonte ? ' <span class="tag">Finpiemonte</span>' : ''}${m.gestore_forzato_id ? ' → ' + h(nomeG(m.gestore_forzato_id)) : ''} ${tagPag(pagI(m))}</td><td class="wrap nota">${h(m.descrizione)}${m.note ? ' · ' + h(m.note) : ''}</td></tr>`).join('') : ''); }).join('')}</tbody>
+    <tfoot><tr><td>Totale</td><td class="n">${r.length}</td><td class="n">${euro(somma(r, i => i.importo))}</td><td></td>${S.pag ? `<td class="n">${euro(tq)}</td><td class="n">${euro(tp)}</td><td class="n">${euro(tr)}</td>` : ''}<td colspan="2"></td></tr></tfoot></table></div>
+    <p class="nota">Clic sul nome della procedura: si aprono i movimenti con il totale versato; clic su un movimento: il dettaglio con le quote dei Gestori e i bonifici. Togli «raggruppa per procedura» per l'elenco semplice.${S.pag ? ' Quota, pagato e residuo sono netti (senza Cassa, IVA e ritenuta); passa il mouse sul residuo per vedere a chi spetta.' : ''}</p>`;
     return;
   }
-  $('#lista').innerHTML = `<div class="conta">${r.length} movimenti · totale € ${euro(somma(r, i => i.importo))}</div>` + tabella('inc', [
+  const colsPag = S.pag ? [
+    {t: 'Gestori', w: 1, tip: 'Gestori a cui spetta la quota (coppie 50%)', v: i => (pagI(i) || {}).gestori_spettanti || ''},
+    {t: 'Quota\nGestori €', n: 1, tip: 'importo / 1,22 × 70% / 1,04 (Finpiemonte senza IVA)', v: i => nz((pagI(i) || {}).quota_spettante), f: i => euroSe((pagI(i) || {}).quota_spettante)},
+    {t: 'Pagato €', n: 1, tip: 'Bonifici fatti ai Gestori (netto)', v: i => nz((pagI(i) || {}).pagato), f: i => { const p = pagI(i) || {}; return `<span title="${h(p.gestori_pagati || '')}">${euroSe(p.pagato)}</span>`; }},
+    {t: 'Data\nbonifico', v: i => (pagI(i) || {}).data_bonifico || '', f: i => data((pagI(i) || {}).data_bonifico)},
+    {t: 'Residuo €', n: 1, tip: 'Quota ancora da pagare (a chi: passa il mouse)', v: i => nz((pagI(i) || {}).residuo), f: i => { const p = pagI(i) || {}; return nz(p.residuo) ? `<b title="${h(p.residuo_a || '')}">${euro(p.residuo)}</b>` : ''; }},
+    {t: 'Pagamento', v: i => (pagI(i) || {}).stato || '', f: i => tagPag(pagI(i))}] : [];
+  $('#lista').innerHTML = `<div class="conta">${r.length} movimenti · totale € ${euro(somma(r, i => i.importo))}${contaPag}</div>` + tabella('inc', [
     {t: 'Data', v: i => i.data_contabile, f: i => data(i.data_contabile)}, {t: 'Importo', n: 1, v: i => Number(i.importo), f: i => euro(i.importo)},
     {t: 'Procedura', v: i => S.procMap[i.procedura_id] || '', f: i => i.procedura_id ? h(S.procMap[i.procedura_id]) : (i.procedura_foglio ? `<span class="tag w">${h(i.procedura_foglio)}</span>` : '')},
     {t: 'Dest.', v: i => i.destinazione, f: i => h(i.destinazione) + (i.finpiemonte ? ' <span class="tag">Finpiemonte</span>' : '') + (i.gestore_forzato_id ? ' → ' + h(nomeG(i.gestore_forzato_id)) + (i.quota_forzata ? ' ' + i.quota_forzata + '%' : '') : '')},
-    {t: 'Descrizione', w: 1, v: i => i.descrizione}, {t: 'Note', w: 1, v: i => i.note}], r, 'apriIncassoRiga');
+    ...colsPag,
+    {t: 'Descrizione', w: 1, v: i => i.descrizione}, {t: 'Note', w: 1, v: i => i.note}], r, 'apriIncassoRiga',
+    `<td>Totale</td><td class="n">${euro(somma(r, i => i.importo))}</td><td colspan="2"></td>${S.pag ? `<td></td><td class="n">${euro(tq)}</td><td class="n">${euro(tp)}</td><td></td><td class="n">${euro(tr)}</td><td></td>` : ''}<td colspan="2"></td>`);
 }
 function apriIncassoRiga(i) { apriIncasso(i.id); }
 const listaProc = () => `<datalist id="dlproc">${Object.entries(S.procMap).map(([id, t]) => `<option value="${h(t)}" data-id="${id}">`).join('')}</datalist>`;
@@ -1216,7 +1244,7 @@ async function apriIncasso(id) {
   apri('Movimento…', 'Caricamento…');
   if (!S.elenco.length) S.elenco = await api.list('v_elenco_procedure');
   if (!S.procMap) { S.procMap = {}; S.elenco.forEach(r => { if (!S.procMap[r.procedura_id] || r.ruolo === 'principale') S.procMap[r.procedura_id] = r.protocollo + ' ' + r.debitore; }); }
-  const [[i], quote] = await Promise.all([api.list('incassi', {f: [['eq', 'id', id]]}), api.list('v_quote_gestori', {f: [['eq', 'incasso_id', id]]})]);
+  const [[i], quote, [pg]] = await Promise.all([api.list('incassi', {f: [['eq', 'id', id]]}), api.list('v_incassi_quote', {f: [['eq', 'incasso_id', id]]}), api.list('v_incassi_pagamenti', {f: [['eq', 'incasso_id', id]]}).catch(() => [null])]);
   S.i = i;
   apri(`Movimento del ${data(i.data_contabile)} – € ${euro(i.importo)}`, `<div class="box" id="finc"><div class="nota" style="margin-bottom:8px">${h(i.descrizione)}${i.riga_foglio ? ` · BANCA riga ${i.riga_foglio}` : ''}${i.procedura_foglio ? ` · nel foglio: «${h(i.procedura_foglio)}»` : ''}</div><div class="griglia">
    <label class="l2" style="grid-column:1/-1">Procedura<input id="iproc" list="dlproc" value="${h(S.procMap[i.procedura_id] || '')}" placeholder="scrivi protocollo o cognome"></label>${listaProc()}
@@ -1224,8 +1252,11 @@ async function apriIncasso(id) {
    ${scelta('gestore_forzato_id', 'Gestore forzato (eccezione)', optG(i.gestore_forzato_id, 'nessuno: vale la nomina'))}${campo('quota_forzata', 'Quota forzata %', i.quota_forzata, 'num')}
    ${campo('data_valuta', 'Data valuta', i.data_valuta, 'date')}${area('note', 'Note', i.note)}</div>
    <div class="azioni"><button class="b" onclick="salva(salvaIncasso,this)">Salva</button>${i.procedura_id ? `<button class="b2" onclick="apriProcedura(${i.procedura_id})">Apri procedura</button>` : ''}</div></div>
-  <div class="box"><h3>Quote ai Gestori</h3>${quote.length ? `<table><thead><tr><th>Gestore</th><th class="n">Quota</th><th class="n">Imponibile</th><th class="n">70%</th><th class="n">Netto</th><th>Bonifico</th></tr></thead><tbody>
-   ${quote.map(q => `<tr><td>${h(q.gestore)}</td><td class="n">${q.quota}%</td><td class="n">${euro(q.imponibile)}</td><td class="n">${euro(q.quota_70)}</td><td class="n">${euro(q.netto)}</td><td>${q.bonifico_id ? `<a href="#" onclick="apriBonifico(${q.bonifico_id});return false">${h(q.stato_bonifico)} ${data(q.data_bonifico)}</a>` : '<span class="tag w">da pagare</span>'}</td></tr>`).join('')}</tbody></table>` : '<span class="nota">Nessuna quota (resta all\'OCC, uscita o procedura senza Gestore)</span>'}</div>`);
+  <div class="box"><h3>Quote ai Gestori ${tagPag(pg)}</h3>${quote.length ? `<table><thead><tr><th>Gestore</th><th class="n">Quota</th><th class="n">70%</th><th class="n">Spettante netto</th><th class="n">Pagato</th><th>Data</th><th class="n">In attesa</th><th class="n">Residuo</th><th>Bonifici</th></tr></thead><tbody>
+   ${quote.map(q => `<tr><td>${h(q.gestore)}${q.fuori_nomina ? ' <span class="tag e" title="Pagato a un Gestore che alla data dell\'incasso non risulta nominato">fuori nomina</span>' : ''}</td><td class="n">${q.quota != null ? q.quota + '%' : ''}</td><td class="n">${euroSe(q.quota_70)}</td><td class="n">${euroSe(q.netto_spettante)}</td><td class="n">${euroSe(q.pagato)}</td><td>${data(q.data_bonifico)}${nz(q.pagato) && !q.chiuso ? ' <span class="tag w">acconto</span>' : ''}</td><td class="n">${nz(q.in_attesa) ? euro(q.in_attesa) + ' <span class="nota">' + h(q.altri_stati || '') + '</span>' : ''}</td><td class="n">${nz(q.residuo) ? '<b>' + euro(q.residuo) + '</b>' : ''}</td><td>${(q.bonifici || []).map(b => `<a href="#" onclick="apriBonifico(${b});return false">n. ${b}</a>`).join(' ') || (nz(q.residuo) ? '<span class="tag w">da pagare</span>' : '')}</td></tr>`).join('')}</tbody>
+   <tfoot><tr><td colspan="3">Totale</td><td class="n">${euro(somma(quote, q => nz(q.netto_spettante)))}</td><td class="n">${euro(somma(quote, q => nz(q.pagato)))}</td><td></td><td class="n">${euro(somma(quote, q => nz(q.in_attesa)))}</td><td class="n">${euro(somma(quote, q => nz(q.residuo)))}</td><td></td></tr></tfoot></table>
+   ${pg && pg.differenza != null && Math.abs(nz(pg.differenza)) >= 0.05 ? `<p class="nota">Differenza tra quota calcolata e pagato + residuo: <b>€ ${euro(pg.differenza)}</b> (quota chiusa con un importo diverso dal calcolo, es. regola storica dei 140 € o pagamento in più).</p>` : ''}
+   <p class="nota">Importi netti (senza Cassa 4%, IVA e ritenuta). «acconto»: il pagamento non chiude la quota, resta il residuo.</p>` : `<span class="nota">Nessuna quota${pg && pg.stato ? ' – ' + h(pg.stato) : ' (resta all\'OCC, uscita o procedura senza Gestore)'}</span>`}</div>`);
 }
 async function salvaIncasso() {
   const n = leggi('#finc'), t = $('#iproc').value.trim();
@@ -1278,17 +1309,25 @@ function disegnaEc() {
 // ---------- DA PAGARE ----------
 async function tabDaPagare() {
   $('#main').innerHTML = 'Caricamento…';
-  const tutte = await api.list('v_quote_gestori', {order: [['data_contabile']]});
-  // quote senza bonifico (o con bonifico annullato), una per incasso e Gestore
-  const visti = new Set(tutte.filter(q => q.bonifico_id && q.stato_bonifico !== 'annullato').map(q => q.incasso_id + '-' + q.gestore_id));
-  S.sospese = tutte.filter(q => q.stato_bonifico === 'sospeso' || q.stato_bonifico === 'proposto');
-  const fatti = new Set(); S.quote = [];
-  for (const q of tutte) { const k = q.incasso_id + '-' + q.gestore_id; if (visti.has(k) || fatti.has(k)) continue; fatti.add(k); S.quote.push(q); }
+  // v40 (db v11g): da pagare = residuo della quota (v_incassi_quote) meno quanto è già in un bonifico proposto o sospeso;
+  // comprende le integrazioni (quote pagate solo in parte, es. SCHIMICCI). Data, procedura e imponibile da v_quote_gestori.
+  const [qv, meta] = await Promise.all([api.list('v_incassi_quote'), api.list('v_quote_gestori', {order: [['data_contabile']]})]);
+  const M = {}; meta.forEach(m => { const k = m.incasso_id + '-' + m.gestore_id; if (!M[k]) M[k] = m; });
+  const r2 = v => Math.round(v * 100) / 100;
+  S.quote = []; S.sospese = [];
+  for (const q of qv) {
+    const m = M[q.incasso_id + '-' + q.gestore_id]; if (!m) continue;
+    const base = {incasso_id: q.incasso_id, data_contabile: m.data_contabile, importo: m.importo, protocollo: m.protocollo, debitore: m.debitore, gestore_id: q.gestore_id, gestore: q.gestore, condivisa: m.condivisa, quota: q.quota, imponibile: m.imponibile, quota_70: q.quota_70, spettante: q.netto_spettante, gia_pagato: nz(q.pagato)};
+    const da = r2(nz(q.residuo) - nz(q.in_attesa));
+    if (da > 0) S.quote.push({...base, netto: da});
+    if (nz(q.in_attesa) > 0) S.sospese.push({...base, stato_bonifico: q.altri_stati || 'in attesa', netto: nz(q.in_attesa)});
+  }
+  S.quote.sort((a, b) => a.data_contabile.localeCompare(b.data_contabile) || a.incasso_id - b.incasso_id);
   const f = S.fdp || (S.fdp = {lim: '2026-06-30', soglia: 1000});
   $('#main').innerHTML = `<div class="filtri"><label>Incassi fino al<input type="date" id="plim" value="${h(f.lim)}"></label>
    <label>Soglia €<input id="psog" value="${h(f.soglia)}" size="6" inputmode="decimal"></label>
    <button class="b2" onclick="scaricaCSV('da-pagare_'+oggi()+'.csv',quoteFiltrate().map(({bonifico_id,stato_bonifico,data_bonifico,...q})=>q))">Esporta dettaglio CSV</button>${btnStampa('dp')}
-   <span class="nota">Regola: importo / 1,22 × 70% / 1,04 (Finpiemonte senza IVA); coppie 50%. In verde i Gestori sopra soglia.</span></div><div id="lista"></div>`;
+   <span class="nota">Regola: importo / 1,22 × 70% / 1,04 (Finpiemonte senza IVA); coppie 50%. Si paga il residuo: comprende le integrazioni delle quote pagate solo in parte. In verde i Gestori sopra soglia.</span></div><div id="lista"></div>`;
   $('#plim').addEventListener('change', disegnaDP); $('#psog').addEventListener('input', disegnaDP);
   disegnaDP();
 }
@@ -1311,9 +1350,9 @@ function disegnaDP() {
 function apriDaPagare(g) {
   const q = quoteFiltrate().filter(x => x.gestore_id === g.gestore_id);
   S.dpSel = {g, q};
-  apri(`Da pagare a ${g.gestore}`, `<div class="box"><table><thead><tr><th>Data</th><th>Procedura</th><th class="n">Importo</th><th class="n">Quota</th><th class="n">Imponibile</th><th class="n">70%</th><th class="n">Netto</th></tr></thead><tbody>
-   ${q.map(x => `<tr class="cl" onclick="apriIncasso(${x.incasso_id})"><td>${data(x.data_contabile)}</td><td>${h(x.protocollo)} ${h(x.debitore)}${x.condivisa ? ' <span class="tag">S</span>' : ''}</td><td class="n">${euro(x.importo)}</td><td class="n">${x.quota}%</td><td class="n">${euro(x.imponibile)}</td><td class="n">${euro(x.quota_70)}</td><td class="n">${euro(x.netto)}</td></tr>`).join('')}</tbody>
-   <tfoot><tr><td colspan="6">Totale netto (+4% Cassa, IVA e ritenuta secondo il regime)</td><td class="n">${euro(somma(q, x => x.netto))}</td></tr></tfoot></table>
+  apri(`Da pagare a ${g.gestore}`, `<div class="box"><table><thead><tr><th>Data</th><th>Procedura</th><th class="n">Importo</th><th class="n">Quota</th><th class="n">Imponibile</th><th class="n">70%</th><th class="n">Già pagato</th><th class="n">Netto</th></tr></thead><tbody>
+   ${q.map(x => `<tr class="cl" onclick="apriIncasso(${x.incasso_id})"><td>${data(x.data_contabile)}</td><td>${h(x.protocollo)} ${h(x.debitore)}${x.condivisa ? ' <span class="tag">S</span>' : ''}${x.gia_pagato ? ' <span class="tag w">integrazione</span>' : ''}</td><td class="n">${euro(x.importo)}</td><td class="n">${x.quota}%</td><td class="n">${euro(x.imponibile)}</td><td class="n">${euro(x.quota_70)}</td><td class="n">${euroSe(x.gia_pagato)}</td><td class="n">${euro(x.netto)}</td></tr>`).join('')}</tbody>
+   <tfoot><tr><td colspan="7">Totale netto (+4% Cassa, IVA e ritenuta secondo il regime)</td><td class="n">${euro(somma(q, x => x.netto))}</td></tr></tfoot></table>
    <div class="azioni"><button class="b" onclick="salva(creaBonifico,this)">Crea bonifico «proposto» con questi ${q.length} movimenti</button>
    <button class="b2" onclick="scaricaCSV('da-pagare_${h(g.gestore).replace(/\W+/g, '-')}_'+oggi()+'.csv',S.dpSel.q.map(({bonifico_id,stato_bonifico,data_bonifico,...x})=>x))">CSV</button>
    <button class="b2" onclick="stampaHtml('Da pagare a '+S.dpSel.g.gestore,'incassi fino al '+data(S.fdp.lim),document.querySelector('#dcorpo .box table').outerHTML)">Stampa / PDF</button></div>
@@ -1325,15 +1364,10 @@ async function creaBonifico() {
   if (!confirm(`Creare un bonifico proposto a ${g.gestore} per € ${euro(tot)} (${q.length} movimenti)?`)) return;
   const ib = await api.list('gestori_iban', {f: [['eq', 'gestore_id', g.gestore_id], ['eq', 'attivo', true]]});
   const [b] = await api.insert('bonifici_gestori', {gestore_id: g.gestore_id, stato: 'proposto', netto: tot, iban_id: ib.length === 1 ? ib[0].id : null, note: `creato dall'app il ${data(oggi())}, incassi fino al ${data($('#plim').value)}`});
-  // righe già legate a un bonifico annullato: si spostano sul nuovo (incasso + Gestore è unico)
-  const vecchie = await api.list('bonifici_righe', {f: [['in', 'incasso_id', q.map(x => x.incasso_id)], ['eq', 'gestore_id', g.gestore_id]]});
-  const nuove = [];
-  for (const x of q) {
-    const r = {bonifico_id: b.id, gestore_id: g.gestore_id, incasso_id: x.incasso_id, quota: x.quota, netto: x.netto, origine: 'app ' + oggi()};
-    const v = vecchie.find(y => y.incasso_id === x.incasso_id);
-    if (v) await api.update('bonifici_righe', {id: v.id}, r); else nuove.push(r);
-  }
-  if (nuove.length) await api.insert('bonifici_righe', nuove);
+  // v40 (db v11g): una riga nuova per ogni movimento, anche se lo stesso incasso ha già un bonifico (acconto, annullato):
+  // il vincolo è ora (bonifico, incasso, Gestore); saldo = vero perché si paga tutto il residuo
+  await api.insert('bonifici_righe', q.map(x => ({bonifico_id: b.id, gestore_id: g.gestore_id, incasso_id: x.incasso_id, quota: x.quota, netto: x.netto, saldo: true,
+    origine: 'app ' + oggi() + (x.gia_pagato ? ' · integrazione (già pagati € ' + euro(x.gia_pagato) + ')' : '')})));
   toast('Bonifico proposto creato'); vai('bonifici'); apriBonifico(b.id);
 }
 
@@ -1398,9 +1432,9 @@ async function apriBonifico(id) {
    <div class="azioni"><button class="b" onclick="salva(salvaBonifico,this)">Salva</button><button class="b2" onclick="calcolaTot()">Calcola totale</button>
    <button class="b2" onclick="apriGestore(${b.gestore_id})">Apri Gestore</button></div>
    <p class="nota">«annullato» rimette i movimenti tra quelli da pagare. Finché si usano i fogli, dopo un bonifico «fatto» aggiornare anche BANCA (Q, R, T) e GESTORI-PAGAMENTI.</p></div>
-  <div class="box"><h3>Movimenti (${righe.length})</h3><table><thead><tr><th>Data</th><th>Procedura</th><th class="n">Quota</th><th class="n">Netto</th><th>Origine</th></tr></thead><tbody>
-   ${righe.map(r => { const x = inc.find(q => q.incasso_id === r.incasso_id) || {}; return `<tr class="cl" onclick="apriIncasso(${r.incasso_id})"><td>${data(x.data_contabile)}</td><td>${h(x.protocollo)} ${h(x.debitore)}</td><td class="n">${r.quota}%</td><td class="n">${euro(r.netto)}</td><td class="nota">${h(r.origine)}</td></tr>`; }).join('')}</tbody>
-   <tfoot><tr><td colspan="3">Totale</td><td class="n">${euro(somma(righe, r => r.netto))}</td><td></td></tr></tfoot></table></div>`);
+  <div class="box"><h3>Movimenti (${righe.length})</h3><table><thead><tr><th>Data</th><th>Procedura</th><th class="n">Quota</th><th class="n">Netto</th><th title="saldo: il pagamento chiude la quota; acconto: resta un residuo">Saldo</th><th>Origine</th></tr></thead><tbody>
+   ${righe.map(r => { const x = inc.find(q => q.incasso_id === r.incasso_id) || {}; return `<tr class="cl" onclick="apriIncasso(${r.incasso_id})"><td>${data(x.data_contabile)}</td><td>${h(x.protocollo)} ${h(x.debitore)}</td><td class="n">${r.quota}%</td><td class="n">${euro(r.netto)}</td><td>${r.saldo === false ? '<span class="tag w">acconto</span>' : 'saldo'}</td><td class="nota">${h(r.origine)}</td></tr>`; }).join('')}</tbody>
+   <tfoot><tr><td colspan="3">Totale</td><td class="n">${euro(somma(righe, r => r.netto))}</td><td colspan="2"></td></tr></tfoot></table></div>`);
 }
 function calcolaTot() {
   const n = leggi('#fbon'), t = (n.netto || 0) + (n.cassa || 0) + (n.iva || 0) - (n.ritenuta || 0) + (n.bollo || 0);
