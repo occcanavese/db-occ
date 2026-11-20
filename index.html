@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v39, 20/11/2026: scheda «Finpiemonte» per l'admin (contributi regionali Misure A e B, db v11fp: elenco con avvisi, scadenze, controllo con la banca, dettaglio con la cronologia) e riquadro «Contributo Finpiemonte» nella scheda procedura; v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -236,7 +236,7 @@ async function entra() {
   if (S.me.cambio_password) return schermataPrimaPassword();
   const vol = S.me.ruolo === 'volenteroso', ante = S.me.ruolo === 'anteprima', gest = S.me.ruolo === 'gestore' || ante;
   if (vol || gest) S.tab = 'mie';
-  const schede = (gest || vol) ? [['mie', 'Le mie procedure']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['omologhe','Omologhe'],['preventivi','Preventivi'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
+  const schede = (gest || vol) ? [['mie', 'Le mie procedure']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['omologhe','Omologhe'],['preventivi','Preventivi'],['finpiemonte','Finpiemonte'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
   $('#app').innerHTML = `<header><h1>Database OCC</h1><nav>${schede.map(([k,t]) => `<button data-t="${k}" onclick="vai('${k}')">${t}</button>`).join('')}</nav>
   <span class="chi">${h(S.me.nome || utente.email)} · <a href="#" onclick="cambiaPassword();return false">cambia password</a> · <a href="#" onclick="esci();return false">esci</a></span></header><main id="main">Caricamento…</main>`;
   try {
@@ -248,7 +248,7 @@ async function entra() {
 function vai(t) {
   S.tab = t; chiudi();
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  ({adempimenti: tabAdempimenti, mie: tabMie, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, omologhe: tabOmologhe, preventivi: tabPreventivi, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
+  ({adempimenti: tabAdempimenti, mie: tabMie, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, omologhe: tabOmologhe, preventivi: tabPreventivi, finpiemonte: tabFinpiemonte, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
 }
 function apri(tit, html, largo) { $('#drawer').classList.toggle('largo', !!largo); $('#dtit').textContent = tit; $('#dcorpo').innerHTML = html; $('#drawer').classList.add('on'); $('#drawer').scrollTop = 0; }
 function chiudi() { $('#drawer').classList.remove('on'); }
@@ -305,6 +305,7 @@ function stampaVista(id) {
   if (id === 'ade') { const f = S.fa; return stampaHtml('Condivise – sottotappe delle procedure condivise', `${n} righe · vista ${f.v === 'griglia' ? 'a griglia' : 'a elenco'} · ` + filtriTesto([['cerca', f.q], ['responsabile', f.r], ['stato', f.s], ['sottotappa', f.a ? ((S.ade || []).find(x => String(x.id) === String(f.a)) || {}).nome : '']]), tabellaStampa('ade')); }
   if (id === 'reg') return stampaHtml('Registro modifiche', `${n} modifiche`, tabellaStampa('reg'));
   if (id === 'prev') { const f = S.fprev || {}; return stampaHtml('Preventivi del compenso OCC', `${n} procedure · ` + filtriTesto([['cerca', f.q], ['stato', f.s], ['redatto dal', data(f.dal)], ['al', data(f.al)], ['solo con rate', f.r ? 'sì' : ''], ['solo con note di controllo', f.d ? 'sì' : '']]), tabellaStampa('prev')); }
+  if (id === 'fp') { const f = S.ffp || {}; return stampaHtml({elenco: 'Contributi Finpiemonte', scadenze: 'Contributi Finpiemonte – scadenze', quadratura: 'Contributi Finpiemonte – controllo con la banca'}[f.v] || 'Contributi Finpiemonte', `${n} righe · ` + filtriTesto([['cerca', f.q], ['misura', f.m], ['stato', STATI_FP_TIT[f.s]], ['Gestore', f.g], ['solo con avvisi', f.av ? 'sì' : '']]), tabellaStampa('fp')); }
   if (id === 'om') { const f = S.fom || {}; return stampaHtml('Omologhe e insinuazione del compenso OCC', `${n} procedure · ` + filtriTesto([['cerca', f.q], ['situazione', f.s], ['esito', f.e], ['omologa dal', data(f.dal)], ['al', data(f.al)]]), tabellaStampa('om')); }
 }
 const btnStampa = id => `<button class="b2" onclick="stampaVista('${id}')" title="Stampa l'elenco con i filtri attuali; per il PDF scegli «Salva come PDF» come stampante">Stampa / PDF</button>`;
@@ -759,6 +760,122 @@ async function caricaPrevProc(pid) {
   $('#prevProc').innerHTML = `<div class="box"><h3>Preventivo</h3>${htmlPreventivi(pid, dati)}</div>`;
 }
 
+// ---------- FINPIEMONTE (v39, db v11fp): contributi regionali L.R. 8/2017, Misure A e B (viste v_finpiemonte, v_finpiemonte_scadenze, v_finpiemonte_quadratura; tabelle finpiemonte_pratiche e finpiemonte_eventi) ----------
+const STATI_FP = ['valutazione', 'non_richiesta', 'da_presentare', 'presentata', 'sospesa', 'concessa', 'depositata', 'saldo_richiesto', 'erogazione_richiesta', 'completata', 'non_ammessa', 'rinunciata', 'chiusa'];
+const STATI_FP_TIT = {valutazione: 'in valutazione', non_richiesta: 'non richiesta', da_presentare: 'da presentare', presentata: 'presentata', sospesa: 'sospesa (integrazioni)', concessa: 'concessa', depositata: 'depositata', saldo_richiesto: 'saldo richiesto', erogazione_richiesta: 'erogazione richiesta', completata: 'completata', non_ammessa: 'non ammessa', rinunciata: 'rinunciata', chiusa: 'chiusa'};
+const VARIANTI_FP = {A0_incapiente: 'A – incapiente (art. 283)', A1_non_incapiente: 'A – non incapiente', B1_piano_consumatore: 'B – piano del consumatore', B2_concordato_minore: 'B – concordato minore', B3_liquidazione_controllata: 'B – liquidazione controllata'};
+const EVENTI_FP = {domanda: 'domanda firmata', invio_domanda: 'domanda inviata', integrazione_richiesta: 'integrazione richiesta da Finpiemonte', integrazione_inviata: 'integrazione inviata', concessione: 'concessione / impegno', erogazione_acconto: 'acconto erogato', proroga_richiesta: 'proroga richiesta', proroga_accolta: 'proroga accolta', proroga_respinta: 'proroga respinta', deposito: 'deposito in Tribunale', sentenza: 'sentenza', domanda_saldo: 'domanda di saldo firmata', invio_saldo: 'domanda di saldo inviata', sollecito: 'sollecito', erogazione_saldo: 'saldo erogato', motivi_ostativi: 'motivi ostativi', rigetto: 'rigetto', rinuncia_comunicata: 'rinuncia comunicata', restituzione: 'restituzione', chiusura: 'chiusura', nota: 'nota'};
+const fpTag = s => { const c = ['non_ammessa', 'rinunciata'].includes(s) ? 'e' : ['presentata', 'sospesa', 'saldo_richiesto', 'erogazione_richiesta', 'da_presentare', 'valutazione'].includes(s) ? 'w' : '';
+  return s ? `<span class="tag ${c}">${h(STATI_FP_TIT[s] || s)}</span>` : ''; };
+const fpAvvisi = a => (a || []).map(x => `<span class="tag e" style="margin:1px 2px 1px 0;white-space:normal">${h(x)}</span>`).join(' ');
+async function tabFinpiemonte() {
+  $('#main').innerHTML = 'Caricamento…';
+  try {
+    const [v, pr] = await Promise.all([api.list('v_finpiemonte', {order: [['nominativo']]}), api.list('finpiemonte_pratiche', {select: 'id,procedura_id'})]);
+    const pid = {}; pr.forEach(x => pid[x.id] = x.procedura_id);
+    S.fpr = v.map(r => ({...r, procedura_id: pid[r.id] ?? null}));
+  } catch (e) { $('#main').innerHTML = `<div class="avviso">Vista v_finpiemonte non disponibile: ${h(e.message)}</div>`; return; }
+  const f = S.ffp || (S.ffp = {v: 'elenco', av: false}), conta = {};
+  S.fpr.forEach(r => conta[r.stato] = (conta[r.stato] || 0) + 1);
+  const gest = [...new Set(S.fpr.map(r => r.gestore).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'it'));
+  const nav = (S.fpr.filter(r => r.avvisi && r.avvisi.length)).length;
+  $('#main').innerHTML = `<div class="filtri">
+   <label>Vista<select id="fv">${opt([['elenco', 'Elenco dei contributi'], ['scadenze', 'Scadenze e cose da fare'], ['quadratura', 'Controllo con la banca']], f.v)}</select></label>
+   <label>Cerca<input id="fq" placeholder="debitore, protocollo, n. domanda" value="${h(f.q)}" size="28"></label>
+   <label>Misura<select id="fm">${opt([['A', 'A – contributo per l\'OCC'], ['B', 'B – contributo alla procedura']], f.m, 'tutte')}</select></label>
+   <label>Stato<select id="fs">${opt(STATI_FP.filter(s => conta[s]).map(s => [s, `${STATI_FP_TIT[s]} (${conta[s]})`]), f.s, 'tutti')}</select></label>
+   <label>Gestore<select id="fg">${opt(gest, f.g, 'tutti')}</select></label>
+   <label style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="fav" ${f.av ? 'checked' : ''}>solo con avvisi (${nav})</label>
+   <button class="b2" onclick="scaricaCSV('finpiemonte_' + (S.ffp.v || 'elenco') + '_' + oggi() + '.csv', S.rows_fp || [])">Esporta CSV</button>${btnStampa('fp')}</div>
+   <p class="nota">Contributi regionali Finpiemonte (L.R. 8/2017). <b>Misura A</b>: 1.200 € all'OCC (2.000 € per l'incapiente), metà come acconto alla concessione e metà come saldo dopo il deposito, che va fatto entro 6 mesi dalla concessione senza contare agosto e il periodo 20/12–7/1 (salvo proroga). <b>Misura B</b>: 4.000 € sul conto della procedura; deposito entro 20 giorni dall'impegno ed erogazione da chiedere entro 15 giorni dalla sentenza. Sono contributi senza IVA: al Gestore va l'importo × 0,70 / 1,04. Caricati il 19/11/2026 dalla cartella CONTRIBUTI-FINPIEMONTE, dal registro e dalla banca. Clic su una riga per la cronologia; per correggere un dato chiedere a Claudia.</p><div id="lista"></div>`;
+  ['fv', 'fq', 'fm', 'fs', 'fg', 'fav'].forEach(id => $('#' + id).addEventListener(id === 'fq' ? 'input' : 'change', disegnaFp));
+  disegnaFp();
+}
+S.ridisegna_fp = () => disegnaFp();
+async function disegnaFp() {
+  const f = S.ffp = {v: $('#fv').value, q: $('#fq').value.trim().toLowerCase(), m: $('#fm').value, s: $('#fs').value, g: $('#fg').value, av: $('#fav').checked};
+  const ok = r => (!f.q || [r.protocollo, r.nominativo, r.numero_domanda, r.gestore].join(' ').toLowerCase().includes(f.q)) && (!f.m || r.misura === f.m)
+    && (!f.s || r.stato === f.s) && (!f.g || r.gestore === f.g) && (!f.av || (r.avvisi && r.avvisi.length));
+  const righe = S.fpr.filter(ok), num = v => v == null ? -1 : Number(v), oggiS = oggi();
+  if (f.v === 'scadenze') {
+    if (!S.fpScad) { $('#lista').innerHTML = 'Caricamento…'; try { S.fpScad = await api.list('v_finpiemonte_scadenze', {order: [['entro', true]]}); } catch (e) { $('#lista').innerHTML = `<div class="avviso">${h(e.message)}</div>`; return; } }
+    const ids = new Set(righe.map(r => r.id)), sc = S.fpScad.filter(x => ids.has(x.id));
+    $('#lista').innerHTML = `<div class="conta">${sc.length} cose da fare (${sc.filter(x => x.entro && x.entro < oggiS).length} con il termine già passato)</div>` + tabella('fp', [
+      {t: 'Entro', v: r => r.entro || '', f: r => r.entro ? (r.entro < oggiS ? `<b style="color:var(--err)">${data(r.entro)}</b>` : data(r.entro)) : '<span class="nota">subito</span>'},
+      {t: 'Cosa fare', v: r => r.cosa, w: 1}, {t: 'Debitore', v: r => r.nominativo}, {t: 'Protocollo', v: r => r.protocollo},
+      {t: 'Misura', v: r => r.misura}, {t: 'N. domanda', v: r => r.numero_domanda}, {t: 'Stato', v: r => STATI_FP.indexOf(r.stato), f: r => fpTag(r.stato)}, {t: 'Gestore', v: r => r.gestore}],
+      sc, 'apriFpRiga');
+    return;
+  }
+  if (f.v === 'quadratura') {
+    if (!S.fpQuad) { $('#lista').innerHTML = 'Caricamento…'; try { S.fpQuad = await api.list('v_finpiemonte_quadratura'); } catch (e) { $('#lista').innerHTML = `<div class="avviso">${h(e.message)}</div>`; return; } }
+    const inc = S.fpr.filter(r => r.misura === 'A'), tot = somma(inc, r => r.acconto_incassato) + somma(inc, r => r.saldo_incassato);
+    $('#lista').innerHTML = `<div class="conta">Misura A: incassati dalla banca € ${euro(tot)} (acconti € ${euro(somma(inc, r => r.acconto_incassato))}, saldi € ${euro(somma(inc, r => r.saldo_incassato))}) · ${S.fpQuad.length ? `<b style="color:var(--err)">${S.fpQuad.length} differenze</b>` : '<b style="color:var(--ok)">nessuna differenza: ogni bonifico Finpiemonte è collegato a un contributo</b>'}</div>`
+      + (S.fpQuad.length ? tabella('fp', [{t: 'Problema', v: r => r.problema, w: 1}, {t: 'Data', v: r => r.data || '', f: r => data(r.data)}, {t: 'Importo €', n: 1, v: r => num(r.importo), f: r => euro(r.importo)},
+        {t: 'Debitore', v: r => r.nominativo}, {t: 'Descrizione del bonifico', v: r => r.descrizione, w: 1}], S.fpQuad, 'apriFpRiga') : (S.rows_fp = [], ''))
+      + '<p class="nota">Confronto tra i bonifici Finpiemonte dell\'estratto conto (incassi segnati «finpiemonte») e le erogazioni registrate nei contributi della Misura A. I 4.000 € della Misura B vanno sul conto della procedura, non su quello dell\'OCC.</p>';
+    return;
+  }
+  const conc = righe.filter(r => ['concessa', 'depositata', 'saldo_richiesto', 'erogazione_richiesta', 'completata'].includes(r.stato));
+  $('#lista').innerHTML = `<div class="conta">${righe.length} contributi su ${S.fpr.length} · concessi o in corso: ${conc.length} per € ${euro(somma(conc, r => r.importo_concesso))} · incassati € ${euro(somma(righe, r => r.totale_incassato))} · ancora da ricevere € ${euro(somma(righe, r => r.ancora_da_ricevere))} · con avvisi: ${righe.filter(r => r.avvisi && r.avvisi.length).length}</div>` + tabella('fp', [
+    {t: 'Debitore', v: r => r.nominativo}, {t: 'Protocollo', v: r => r.protocollo || '', f: r => r.protocollo ? h(r.protocollo) : '<span class="tag w" title="Il debitore non è ancora nel database">senza procedura</span>'},
+    {t: 'Gestore', v: r => r.gestore, w: 1},
+    {t: 'Misura', v: r => r.variante || r.misura, f: r => `<span title="${h(VARIANTI_FP[r.variante] || '')}">${h(r.misura)}${r.variante === 'A0_incapiente' ? ' <span class="nota">incap.</span>' : ''}</span>`},
+    {t: 'N. domanda', v: r => r.numero_domanda},
+    {t: 'Importo €', n: 1, v: r => num(r.importo_concesso), f: r => euro(r.importo_concesso)},
+    {t: 'Stato', v: r => STATI_FP.indexOf(r.stato), f: r => fpTag(r.stato)},
+    {t: 'Concessa\nil', v: r => r.data_concessione || '', f: r => data(r.data_concessione)},
+    {t: 'Termine\ndeposito', tip: 'Per la A: 6 mesi dalla concessione senza agosto e 20/12–7/1, oppure il termine della proroga', v: r => r.termine_deposito || '',
+      f: r => r.termine_deposito ? (!r.data_deposito && r.termine_deposito < oggiS && ['concessa'].includes(r.stato) ? `<b style="color:var(--err)">${data(r.termine_deposito)}</b>` : data(r.termine_deposito)) + (r.proroga_fino_al ? ` <span class="nota" title="Proroga ${h(r.proroga_esito || '')}">pror.</span>` : '') : ''},
+    {t: 'Depositata\nil', v: r => r.data_deposito || '', f: r => data(r.data_deposito)},
+    {t: 'Acconto €', n: 1, v: r => num(r.acconto_incassato), f: r => r.acconto_incassato ? `<span title="incassato il ${data(r.data_acconto)}">${euro(r.acconto_incassato)}</span>` : ''},
+    {t: 'Saldo €', n: 1, v: r => num(r.saldo_incassato), f: r => r.saldo_incassato ? `<span title="incassato il ${data(r.data_saldo)}">${euro(r.saldo_incassato)}</span>` : ''},
+    {t: 'Da\nricevere €', n: 1, v: r => num(r.ancora_da_ricevere), f: r => Number(r.ancora_da_ricevere) ? euro(r.ancora_da_ricevere) : ''},
+    {t: 'Avvisi', w: 1, v: r => (r.avvisi || []).join(' | '), f: r => fpAvvisi(r.avvisi)}],
+    righe, 'apriFpRiga',
+    `<td colspan="5">Totale</td><td class="n">${euro(somma(righe, r => r.importo_concesso))}</td><td colspan="4"></td><td class="n">${euro(somma(righe, r => r.acconto_incassato))}</td><td class="n">${euro(somma(righe, r => r.saldo_incassato))}</td><td class="n">${euro(somma(righe, r => r.ancora_da_ricevere))}</td><td></td>`);
+}
+function apriFpRiga(r) { const id = r.pratica_id || r.id; if (id) apriFp(id); }
+async function datiFp(f) {
+  const v = await api.list('v_finpiemonte', {f: [f]});
+  const ev = v.length ? await api.list('finpiemonte_eventi', {f: [['in', 'pratica_id', v.map(x => x.id)]], order: [['data'], ['id']]}) : [];
+  return {v, ev};
+}
+function htmlFp({v, ev}) {
+  const riga = (k, x) => x == null || x === '' ? '' : `<tr><th style="text-align:left;width:38%">${k}</th><td>${x}</td></tr>`;
+  return v.map(p => {
+    const e = ev.filter(x => x.pratica_id === p.id);
+    return `<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><b>Misura ${h(p.misura)} · domanda ${h(p.numero_domanda || '—')} · ${h(p.nominativo)}</b> ${fpTag(p.stato)}
+     ${p.avvisi && p.avvisi.length ? `<div style="margin:6px 0">${fpAvvisi(p.avvisi)}</div>` : ''}<table>
+     ${riga('Tipo', h(VARIANTI_FP[p.variante] || p.variante))}${riga('Importo', euro(p.importo_concesso) + ' €')}${riga('Motivo dello stato', h(p.motivo_stato))}
+     ${riga('Procedura', p.protocollo ? h(p.protocollo) + (p.lexdebita_stato ? ' · ' + h(p.lexdebita_stato) : '') : '<span class="tag w">debitore non ancora nel database</span>')}${riga('Gestore', h(p.gestore))}
+     ${riga('Domanda firmata il', data(p.data_domanda))}${riga('Domanda inviata il', data(p.data_invio_domanda))}${riga('Integrazioni richieste', p.integrazioni ? p.integrazioni : '')}
+     ${riga(p.misura === 'B' ? 'Impegno del' : 'Concessione del', data(p.data_concessione) + (p.prot_concessione ? ' (' + h(p.prot_concessione) + ')' : ''))}
+     ${riga('Scadenza del deposito', data(p.scadenza_deposito))}${riga('Proroga', p.proroga_fino_al ? 'fino al ' + data(p.proroga_fino_al) + (p.proroga_esito ? ' · ' + h(p.proroga_esito) : '') : '')}
+     ${riga('Termine del deposito', p.termine_deposito ? '<b>' + data(p.termine_deposito) + '</b>' : '')}
+     ${riga('Depositata il', data(p.data_deposito) + (p.rg_deposito ? ' · R.G. ' + h(p.rg_deposito) : ''))}${riga('Sentenza del', data(p.data_sentenza))}${riga('Erogazione B da chiedere entro', data(p.scadenza_erogazione_b))}
+     ${riga('Acconto incassato', p.acconto_incassato ? euro(p.acconto_incassato) + ' € il ' + data(p.data_acconto) : '')}
+     ${riga('Domanda di saldo', [p.data_domanda_saldo ? 'firmata il ' + data(p.data_domanda_saldo) : '', p.data_invio_saldo ? 'inviata il ' + data(p.data_invio_saldo) : '', p.saldo_inviato_da ? 'da ' + h(p.saldo_inviato_da) : ''].filter(Boolean).join(' · '))}
+     ${riga('Ultimo sollecito', data(p.ultimo_sollecito))}${riga('Saldo incassato', p.saldo_incassato ? euro(p.saldo_incassato) + ' € il ' + data(p.data_saldo) : '')}
+     ${riga('Restituito', Number(p.restituito) ? euro(p.restituito) + ' €' : '')}${riga('Totale incassato', p.totale_incassato != null ? '<b>' + euro(p.totale_incassato) + ' €</b>' : '')}${riga('Ancora da ricevere', Number(p.ancora_da_ricevere) ? euro(p.ancora_da_ricevere) + ' €' : '')}
+     ${riga('Chiusa il', data(p.data_chiusura))}${riga('Cartella', h(p.cartella))}${riga('Note', h(p.note))}${riga('Dubbi da chiarire', p.dubbi ? `<span style="color:var(--warn)">${h(p.dubbi)}</span>` : '')}</table>
+     <h4 style="margin:10px 0 4px">Cronologia (${e.length})</h4>${e.length ? `<table><thead><tr><th>Data</th><th>Fatto</th><th class="n">Importo €</th><th>Dettagli</th><th>Chi</th></tr></thead><tbody>
+      ${e.map(x => `<tr><td>${data(x.data)}</td><td>${h(EVENTI_FP[x.tipo] || x.tipo)}</td><td class="n">${euro(x.importo)}</td><td class="wrap">${[x.fino_al ? 'fino al ' + data(x.fino_al) : '', x.prot_fp ? 'prot. ' + h(x.prot_fp) : '', x.incasso_id ? `<span class="tag" title="Bonifico n. ${x.incasso_id} dell'estratto conto">in banca</span>` : '', h(x.note || '')].filter(Boolean).join(' · ')}</td><td>${h(x.chi || '')}</td></tr>`).join('')}</tbody></table>` : '<p class="nota">Nessun fatto registrato.</p>'}</div>`;
+  }).join('') + '<p class="nota">Percorsi delle cartelle a partire da CONTRIBUTI-FINPIEMONTE su raid6. Per correggere un dato chiedere a Claudia.</p>';
+}
+async function apriFp(id) {
+  const r = (S.fpr || []).find(x => x.id === id) || {};
+  apri(`Finpiemonte – ${r.nominativo || ''} ${r.protocollo || ''}`, 'Caricamento…', true);
+  let d; try { d = await datiFp(['eq', 'id', id]); } catch (e) { $('#dcorpo').innerHTML = `<div class="avviso">${h(e.message)}</div>`; return; }
+  $('#dcorpo').innerHTML = `<div class="box">${htmlFp(d)}</div>${r.procedura_id ? `<div class="azioni"><button class="b2" onclick="apriProcedura(${r.procedura_id})">Apri la procedura</button></div>` : ''}`;
+}
+// riquadro «Contributo Finpiemonte» nella scheda della procedura
+async function caricaFpProc(pid) {
+  let pr, d; try { pr = await api.list('finpiemonte_pratiche', {select: 'id', f: [['eq', 'procedura_id', pid]]}); if (!pr.length) return; d = await datiFp(['in', 'id', pr.map(x => x.id)]); } catch (e) { return; }
+  if (!$('#fpProc') || !d.v.length) return;
+  $('#fpProc').innerHTML = `<div class="box"><h3>Contributo Finpiemonte</h3>${htmlFp(d)}</div>`;
+}
+
 // ---------- MONITORAGGIO (v9t): Gestori a cui chiedere l'aggiornamento delle tappe e loro pratiche ----------
 S.monAp = {};
 async function caricaMonitoraggio() {
@@ -868,6 +985,7 @@ async function apriProcedura(id) {
   ${p.lexdebita_stato ? `<span class="nota">Lexdebita: ${h(p.lexdebita_tipo || '')} · ${h(p.lexdebita_stato)} · DGSTAT ${h(p.lexdebita_dgstat || '')} (letto il ${data(p.lexdebita_letto_il)})</span>` : ''}</div></div>
 
   <div id="prevProc"></div>
+  <div id="fpProc"></div>
   <div id="esitoTrib"></div>
   ${S.avz && S.avz[id] ? `<div class="box"><h3>Avanzamento dell'istruttoria</h3>${avzCella(id)} <button class="b2" style="margin-left:10px" onclick="apriTappe(${id})">Gestisci le tappe</button></div>` : ''}
 
@@ -902,7 +1020,7 @@ async function apriProcedura(id) {
   <div class="box"><h3>Incassi (${inc.length})</h3>${inc.length ? `<table><thead><tr><th>Data</th><th class="n">Importo</th><th>Destinazione</th><th>Descrizione</th></tr></thead><tbody>
   ${inc.map(i => `<tr class="cl" onclick="apriIncasso(${i.id})"><td>${data(i.data_contabile)}</td><td class="n">${euro(i.importo)}</td><td>${h(i.destinazione)}${i.gestore_forzato_id ? ' → ' + h(nomeG(i.gestore_forzato_id)) : ''}</td><td class="wrap">${h(i.descrizione)}</td></tr>`).join('')}</tbody>
   <tfoot><tr><td>Totale</td><td class="n">${euro(somma(inc, i => i.importo))}</td><td colspan="2"></td></tr></tfoot></table>` : '<span class="nota">Nessuno</span>'}</div>`);
-  caricaEsitoTrib(id); caricaPrevProc(id);
+  caricaEsitoTrib(id); caricaPrevProc(id); caricaFpProc(id);
 }
 async function salvaProc() {
   const {p} = S.p, n = leggi('#fproc'), patch = diff(p, n);
