@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v40, 20/11/2026: incassi ↔ bonifici ai Gestori (db v11g): nella scheda «Incassi» quota dei Gestori, già pagato, data del bonifico, residuo e stato del pagamento (vista v_incassi_pagamenti), filtro «Pagamento Gestori»; nel dettaglio del movimento le quote per Gestore con pagato, residuo e bonifici (v_incassi_quote); «Da pagare» calcolata dal residuo (comprese le integrazioni, es. SCHIMICCI); «Crea bonifico» aggiunge sempre righe nuove (pagamenti in più volte); nel bonifico la colonna saldo/acconto; v39, 20/11/2026: scheda «Finpiemonte» per l'admin (contributi regionali Misure A e B, db v11fp: elenco con avvisi, scadenze, controllo con la banca, dettaglio con la cronologia) e riquadro «Contributo Finpiemonte» nella scheda procedura; v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v41, 21/11/2026: provvedimenti del Tribunale (sentenze e decreti originali, db v11bih/v11bii, tabella sentenze_procedure, Storage privato «sentenze») apribili con l'icona 📄 nella scheda «Omologhe» (colonna Provvedimento, filtro «solo con provvedimento») e nel riquadro «Esito in Tribunale» della procedura; link temporanei (10 minuti) solo per chi è abilitato; v40, 20/11/2026: incassi ↔ bonifici ai Gestori (db v11g): nella scheda «Incassi» quota dei Gestori, già pagato, data del bonifico, residuo e stato del pagamento (vista v_incassi_pagamenti), filtro «Pagamento Gestori»; nel dettaglio del movimento le quote per Gestore con pagato, residuo e bonifici (v_incassi_quote); «Da pagare» calcolata dal residuo (comprese le integrazioni, es. SCHIMICCI); «Crea bonifico» aggiunge sempre righe nuove (pagamenti in più volte); nel bonifico la colonna saldo/acconto; v39, 20/11/2026: scheda «Finpiemonte» per l'admin (contributi regionali Misure A e B, db v11fp: elenco con avvisi, scadenze, controllo con la banca, dettaglio con la cronologia) e riquadro «Contributo Finpiemonte» nella scheda procedura; v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -113,6 +113,7 @@ textarea.nota-tappa{width:100%;min-height:32px;max-height:150px;overflow-y:auto;
   #stampa .pie{margin-top:8px;font-size:8pt;color:#555}
 }
 @media (max-width:700px){main{padding:10px}.griglia label.l2{grid-column:span 1}}
+  .sentlink { text-decoration: none; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -628,6 +629,7 @@ const ESITO_BREVE = e => String(e || '').replace(/^\d+\s*–\s*/, '');
 async function tabOmologhe() {
   $('#main').innerHTML = 'Caricamento…';
   try { S.om = await api.list('v_omologhe', {order: [['data_omologa', false]]}); } catch (e) { $('#main').innerHTML = `<div class="avviso">Vista v_omologhe non disponibile: ${h(e.message)}</div>`; return; }
+  await caricaSentenze();
   const f = S.fom || (S.fom = {}), conta = {};
   S.om.forEach(r => conta[r.situazione] = (conta[r.situazione] || 0) + 1);
   const esiti = [...new Set(S.om.map(r => r.esito).filter(Boolean))].sort();
@@ -636,20 +638,22 @@ async function tabOmologhe() {
    <label>Situazione insinuazione<select id="os">${opt(SIT_OM.filter(s => conta[s]).map(s => [s, `${s} (${conta[s]})`]), f.s, 'tutte')}</select></label>
    <label>Esito<select id="oe">${opt(esiti.map(e => [e, ESITO_BREVE(e)]), f.e, 'tutti')}</select></label>
    <label>Omologa dal<input type="date" id="odal" value="${h(f.dal)}"></label><label>al<input type="date" id="oal" value="${h(f.al)}"></label>
+   <label class="chk"><input type="checkbox" id="osent" ${f.sent ? 'checked' : ''}> solo con provvedimento</label>
    <button class="b2" onclick="scaricaCSV('omologhe_' + oggi() + '.csv', S.rows_om || [])">Esporta CSV</button>${btnStampa('om')}</div>
    <p class="nota">Dal registro OMOLOGHE (scheda del foglio lista-80) e dalle cartelle OMOLOGHE_INSINUAZIONI (rigetti, depositate), 17/11/2026. Clic su una riga per aprire la procedura. In rosso le insinuazioni da fare o mancate, in arancio quelle in attesa.</p><div id="lista"></div>`;
-  ['oq', 'os', 'oe', 'odal', 'oal'].forEach(id => $('#' + id).addEventListener(id === 'oq' ? 'input' : 'change', disegnaOm));
+  ['oq', 'os', 'oe', 'odal', 'oal', 'osent'].forEach(id => $('#' + id).addEventListener(id === 'oq' ? 'input' : 'change', disegnaOm));
   disegnaOm();
 }
 S.ridisegna_om = () => disegnaOm();
 function disegnaOm() {
-  const f = S.fom = {q: $('#oq').value.trim().toLowerCase(), s: $('#os').value, e: $('#oe').value, dal: $('#odal').value, al: $('#oal').value};
+  const f = S.fom = {q: $('#oq').value.trim().toLowerCase(), s: $('#os').value, e: $('#oe').value, dal: $('#odal').value, al: $('#oal').value, sent: $('#osent').checked};
   const righe = S.om.filter(r => (!f.q || [r.protocollo, r.debitori, r.gestore_attuale, r.gestore_registro, r.liquidatore, r.giudice].join(' ').toLowerCase().includes(f.q))
-    && (!f.s || r.situazione === f.s) && (!f.e || r.esito === f.e) && (!f.dal || (r.data_omologa && r.data_omologa >= f.dal)) && (!f.al || (r.data_omologa && r.data_omologa <= f.al)));
-  $('#lista').innerHTML = `<div class="conta">${righe.length} esiti su ${S.om.length} · credito OCC indicato: € ${euro(somma(righe, r => r.credito_occ))}</div>` + tabella('om', [
+    && (!f.s || r.situazione === f.s) && (!f.e || r.esito === f.e) && (!f.dal || (r.data_omologa && r.data_omologa >= f.dal)) && (!f.al || (r.data_omologa && r.data_omologa <= f.al)) && (!f.sent || sentDi(r).length));
+  $('#lista').innerHTML = `<div class="conta">${righe.length} esiti su ${S.om.length} · con provvedimento: ${righe.filter(r => sentDi(r).length).length} · credito OCC indicato: € ${euro(somma(righe, r => r.credito_occ))}</div>` + tabella('om', [
     {t: 'Protocollo', v: r => r.protocollo}, {t: 'Debitori', v: r => r.debitori, w: 1},
     {t: 'Esito', v: r => r.esito, f: r => `<span title="${h(r.esito)}">${h(ESITO_BREVE(r.esito))}</span>`},
     {t: 'Data\nomologa', v: r => r.data_omologa || '', f: r => data(r.data_omologa)},
+    {t: 'Provve-\ndimento', tip: 'Sentenza o decreto del Tribunale (originale): clic sull\'icona per aprirlo', v: r => sentDi(r).length, f: r => linkSent(sentDi(r))},
     {t: 'Situazione', v: r => SIT_OM.indexOf(r.situazione), f: r => sitTag(r.situazione)},
     {t: 'Gestore', tip: 'Gestore attuale nel database (tra parentesi il GESTORE 1 del registro, se diverso)', v: r => r.gestore_attuale,
      f: r => h(r.gestore_attuale || '') + (r.gestore_registro && !String(r.gestore_attuale || '').toUpperCase().includes(String(r.gestore_registro).toUpperCase().split(' ')[0]) ? ` <span class="nota">(registro: ${h(r.gestore_registro)})</span>` : '')},
@@ -663,15 +667,32 @@ function disegnaOm() {
     righe, 'apriOmRiga');
 }
 function apriOmRiga(r) { apriProcedura(r.procedura_id); }
+// provvedimenti del Tribunale (v41, db v11bii): tabella sentenze_procedure + Storage privato «sentenze» (link firmati temporanei)
+async function caricaSentenze() {
+  try { S.sent = await api.list('sentenze_procedure', {order: [['data_provvedimento', false]]}); } catch (e) { S.sent = []; }
+  S.sentOm = {}; S.sentPr = {};
+  S.sent.forEach(s => { if (s.omologa_id) (S.sentOm[s.omologa_id] = S.sentOm[s.omologa_id] || []).push(s); else (S.sentPr[s.procedura_id] = S.sentPr[s.procedura_id] || []).push(s); });
+}
+const sentDi = r => (S.sentOm && S.sentOm[r.omologa_id]) || (S.sentPr && S.sentPr[r.procedura_id]) || [];
+const linkSent = l => l.map(s => `<a href="#" class="sentlink" title="${h([s.provvedimento, s.numero, data(s.data_provvedimento)].filter(Boolean).join(' · '))}" onclick="event.preventDefault();event.stopPropagation();apriSentenza('${encodeURIComponent(s.file_path)}')">📄</a>`).join(' ');
+async function apriSentenza(p) {
+  const w = window.open('', '_blank');
+  const {data: d, error} = await sb.storage.from('sentenze').createSignedUrl(decodeURIComponent(p), 600);
+  if (error || !d) { if (w) w.close(); return toast('Provvedimento non disponibile: ' + (error ? error.message : ''), true); }
+  if (w) w.location = d.signedUrl; else window.location.href = d.signedUrl;
+}
 // riquadro «Esito in Tribunale» nella scheda della procedura (admin e Gestori: RLS di occ.omologhe)
 async function caricaEsitoTrib(pid) {
   const el = () => $('#esitoTrib');
   let l = [];
   try { l = await api.list('v_omologhe', {f: [['eq', 'procedura_id', pid]], order: [['data_omologa', false]]}); } catch (e) { return; }
   if (!el() || !l.length) return;
+  let sp = [];
+  try { sp = await api.list('sentenze_procedure', {f: [['eq', 'procedura_id', pid]], order: [['data_provvedimento', false]]}); } catch (e) {}
+  const sentO = o => { const x = sp.filter(s => s.omologa_id === o.omologa_id); return x.length ? x : sp.filter(s => !s.omologa_id); };
   const riga = (k, v) => v == null || v === '' ? '' : `<tr><th style="text-align:left;width:38%">${k}</th><td>${v}</td></tr>`;
   el().innerHTML = l.map(o => `<div class="box"><h3>Esito in Tribunale</h3><table>
-   ${riga('Esito', h(o.esito))}${riga('Data sentenza / omologa', data(o.data_omologa))}${riga('Giudice delegato', h(o.giudice))}${riga('Liquidatore / commissario', h(o.liquidatore))}
+   ${riga('Esito', h(o.esito))}${riga('Data sentenza / omologa', data(o.data_omologa))}${riga('Provvedimento', sentO(o).map(s => linkSent([s]) + ' ' + h([s.provvedimento, s.numero].filter(Boolean).join(' · '))).join('<br>'))}${riga('Giudice delegato', h(o.giudice))}${riga('Liquidatore / commissario', h(o.liquidatore))}
    ${riga('PEC della procedura', h(o.pec_procedura))}${riga('Comunicazione del liquidatore', data(o.data_comunicazione))}${riga('Scadenza per l\'insinuazione', data(o.scadenza_insinuazione))}
    ${riga('Insinuazione / istanza dell\'OCC', data(o.data_insinuazione))}${riga('Credito OCC (con IVA)', o.credito_occ != null ? euro(o.credito_occ) + ' €' : '')}
    ${riga('Situazione', sitTag(o.situazione))}${riga('Annotazioni del registro', h(o.annotazioni_registro))}${riga('Note', h(o.note))}</table>
