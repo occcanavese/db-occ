@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v41, 21/11/2026: provvedimenti del Tribunale (sentenze e decreti originali, db v11bih/v11bii, tabella sentenze_procedure, Storage privato «sentenze») apribili con l'icona 📄 nella scheda «Omologhe» (colonna Provvedimento, filtro «solo con provvedimento») e nel riquadro «Esito in Tribunale» della procedura; link temporanei (10 minuti) solo per chi è abilitato; v40, 20/11/2026: incassi ↔ bonifici ai Gestori (db v11g): nella scheda «Incassi» quota dei Gestori, già pagato, data del bonifico, residuo e stato del pagamento (vista v_incassi_pagamenti), filtro «Pagamento Gestori»; nel dettaglio del movimento le quote per Gestore con pagato, residuo e bonifici (v_incassi_quote); «Da pagare» calcolata dal residuo (comprese le integrazioni, es. SCHIMICCI); «Crea bonifico» aggiunge sempre righe nuove (pagamenti in più volte); nel bonifico la colonna saldo/acconto; v39, 20/11/2026: scheda «Finpiemonte» per l'admin (contributi regionali Misure A e B, db v11fp: elenco con avvisi, scadenze, controllo con la banca, dettaglio con la cronologia) e riquadro «Contributo Finpiemonte» nella scheda procedura; v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v42, 24/11/2026: scheda «Pagamenti» per l'admin (db v11bjw: viste v_pagamenti_procedure, v_pagamenti_previsti, v_scadenziario_incassi): per ogni procedura con preventivo firmato dovuto a oggi, versato, scoperto e prossima scadenza; vista «Scadenziario» dei prossimi incassi concordati; dettaglio delle rate con lo stato; riquadro «Pagamenti previsti» nella scheda procedura; v41, 21/11/2026: provvedimenti del Tribunale (sentenze e decreti originali, db v11bih/v11bii, tabella sentenze_procedure, Storage privato «sentenze») apribili con l'icona 📄 nella scheda «Omologhe» (colonna Provvedimento, filtro «solo con provvedimento») e nel riquadro «Esito in Tribunale» della procedura; link temporanei (10 minuti) solo per chi è abilitato; v40, 20/11/2026: incassi ↔ bonifici ai Gestori (db v11g): nella scheda «Incassi» quota dei Gestori, già pagato, data del bonifico, residuo e stato del pagamento (vista v_incassi_pagamenti), filtro «Pagamento Gestori»; nel dettaglio del movimento le quote per Gestore con pagato, residuo e bonifici (v_incassi_quote); «Da pagare» calcolata dal residuo (comprese le integrazioni, es. SCHIMICCI); «Crea bonifico» aggiunge sempre righe nuove (pagamenti in più volte); nel bonifico la colonna saldo/acconto; v39, 20/11/2026: scheda «Finpiemonte» per l'admin (contributi regionali Misure A e B, db v11fp: elenco con avvisi, scadenze, controllo con la banca, dettaglio con la cronologia) e riquadro «Contributo Finpiemonte» nella scheda procedura; v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -237,7 +237,7 @@ async function entra() {
   if (S.me.cambio_password) return schermataPrimaPassword();
   const vol = S.me.ruolo === 'volenteroso', ante = S.me.ruolo === 'anteprima', gest = S.me.ruolo === 'gestore' || ante;
   if (vol || gest) S.tab = 'mie';
-  const schede = (gest || vol) ? [['mie', 'Le mie procedure']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['omologhe','Omologhe'],['preventivi','Preventivi'],['finpiemonte','Finpiemonte'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
+  const schede = (gest || vol) ? [['mie', 'Le mie procedure']] : [['procedure','Procedure'],['adempimenti','Condivise'],['gestori','Gestori'],['monitoraggio','Monitoraggio'],['omologhe','Omologhe'],['preventivi','Preventivi'],['pagamenti','Pagamenti'],['finpiemonte','Finpiemonte'],['incassi','Incassi'],['estratto','Estratto conto'],['dapagare','Da pagare'],['bonifici','Bonifici'],['report','Report DGSTAT'],['registro','Registro modifiche']];
   $('#app').innerHTML = `<header><h1>Database OCC</h1><nav>${schede.map(([k,t]) => `<button data-t="${k}" onclick="vai('${k}')">${t}</button>`).join('')}</nav>
   <span class="chi">${h(S.me.nome || utente.email)} · <a href="#" onclick="cambiaPassword();return false">cambia password</a> · <a href="#" onclick="esci();return false">esci</a></span></header><main id="main">Caricamento…</main>`;
   try {
@@ -249,7 +249,7 @@ async function entra() {
 function vai(t) {
   S.tab = t; chiudi();
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  ({adempimenti: tabAdempimenti, mie: tabMie, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, omologhe: tabOmologhe, preventivi: tabPreventivi, finpiemonte: tabFinpiemonte, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
+  ({adempimenti: tabAdempimenti, mie: tabMie, procedure: tabProcedure, gestori: tabGestori, monitoraggio: tabMonitoraggio, omologhe: tabOmologhe, preventivi: tabPreventivi, pagamenti: tabPagamenti, finpiemonte: tabFinpiemonte, incassi: tabIncassi, estratto: tabEstratto, dapagare: tabDaPagare, bonifici: tabBonifici, report: tabReport, registro: tabRegistro})[t]();
 }
 function apri(tit, html, largo) { $('#drawer').classList.toggle('largo', !!largo); $('#dtit').textContent = tit; $('#dcorpo').innerHTML = html; $('#drawer').classList.add('on'); $('#drawer').scrollTop = 0; }
 function chiudi() { $('#drawer').classList.remove('on'); }
@@ -306,6 +306,7 @@ function stampaVista(id) {
     return stampaHtml('Bonifici per beneficiario', `${periodo(f.dal, f.al)} · ${S.bonG.length} beneficiari · ${n} bonifici · ` + filtriTesto([['cerca', S.bq], ['beneficiari', {gestore: 'solo Gestori', altro: 'solo altri'}[S.bt]], ['stato', S.bs]]) + ' · i dettagli sono stampati per i beneficiari aperti', corpo); }
   if (id === 'ade') { const f = S.fa; return stampaHtml('Condivise – sottotappe delle procedure condivise', `${n} righe · vista ${f.v === 'griglia' ? 'a griglia' : 'a elenco'} · ` + filtriTesto([['cerca', f.q], ['responsabile', f.r], ['stato', f.s], ['sottotappa', f.a ? ((S.ade || []).find(x => String(x.id) === String(f.a)) || {}).nome : '']]), tabellaStampa('ade')); }
   if (id === 'reg') return stampaHtml('Registro modifiche', `${n} modifiche`, tabellaStampa('reg'));
+  if (id === 'pag') { const f = S.fpag || {}; return stampaHtml(f.v === 'scad' ? 'Scadenziario degli incassi concordati' : 'Pagamenti dei preventivi firmati', `${n} righe · ` + filtriTesto([['cerca', f.q], ['situazione', f.s], ['dal', data(f.dal)], ['al', data(f.al)], ['anche chiuse ed escluse', f.t ? 'sì' : '']]), tabellaStampa('pag')); }
   if (id === 'prev') { const f = S.fprev || {}; return stampaHtml('Preventivi del compenso OCC', `${n} procedure · ` + filtriTesto([['cerca', f.q], ['stato', f.s], ['redatto dal', data(f.dal)], ['al', data(f.al)], ['solo con rate', f.r ? 'sì' : ''], ['solo con note di controllo', f.d ? 'sì' : '']]), tabellaStampa('prev')); }
   if (id === 'fp') { const f = S.ffp || {}; return stampaHtml({elenco: 'Contributi Finpiemonte', scadenze: 'Contributi Finpiemonte – scadenze', quadratura: 'Contributi Finpiemonte – controllo con la banca'}[f.v] || 'Contributi Finpiemonte', `${n} righe · ` + filtriTesto([['cerca', f.q], ['misura', f.m], ['stato', STATI_FP_TIT[f.s]], ['Gestore', f.g], ['solo con avvisi', f.av ? 'sì' : '']]), tabellaStampa('fp')); }
   if (id === 'om') { const f = S.fom || {}; return stampaHtml('Omologhe e insinuazione del compenso OCC', `${n} procedure · ` + filtriTesto([['cerca', f.q], ['situazione', f.s], ['esito', f.e], ['omologa dal', data(f.dal)], ['al', data(f.al)]]), tabellaStampa('om')); }
@@ -782,6 +783,80 @@ async function caricaPrevProc(pid) {
   $('#prevProc').innerHTML = `<div class="box"><h3>Preventivo</h3>${htmlPreventivi(pid, dati)}</div>`;
 }
 
+// ---------- PAGAMENTI (v42, db v11bjw): pagamenti previsti dai preventivi firmati, versamenti e scadenziario ----------
+const SIT_PAG = ['in ritardo', 'in regola, rate in corso', 'in regola, attende il deposito', 'in regola'];
+const pagTag = s => s ? `<span class="tag ${s === 'in ritardo' || s.startsWith('scaduta') ? 'e' : s === 'pagata' || s === 'in regola' ? '' : 'w'}">${h(s)}</span>` : '';
+async function tabPagamenti() {
+  $('#main').innerHTML = 'Caricamento…';
+  try { [S.pgp, S.pgscad] = await Promise.all([api.list('v_pagamenti_procedure', {order: [['scoperto', false]]}), api.list('v_scadenziario_incassi', {order: [['scadenza'], ['debitori']]})]); }
+  catch (e) { $('#main').innerHTML = `<div class="avviso">Viste dei pagamenti non disponibili: ${h(e.message)}</div>`; return; }
+  const f = S.fpag || (S.fpag = {v: 'proc', s: 'in ritardo'}), conta = {};
+  S.pgp.filter(r => f.t || (r.fase !== 'chiusa' && !r.escluso_monitoraggio)).forEach(r => conta[r.situazione] = (conta[r.situazione] || 0) + 1);
+  $('#main').innerHTML = `<div class="filtri">
+   <label>Vista<select id="gv">${opt([['proc', 'Procedure (dovuto e versato)'], ['scad', 'Scadenziario dei prossimi incassi']], f.v)}</select></label>
+   <label>Cerca<input id="gq" placeholder="protocollo, debitore, Gestore" value="${h(f.q)}" size="28"></label>
+   <label ${f.v === 'scad' ? 'style="display:none"' : ''}>Situazione<select id="gs">${opt(SIT_PAG.filter(s => conta[s]).map(s => [s, `${s} (${conta[s]})`]), f.s, 'tutte')}</select></label>
+   <label ${f.v === 'scad' ? '' : 'style="display:none"'}>Scadenza dal<input type="date" id="gdal" value="${h(f.dal)}"></label><label ${f.v === 'scad' ? '' : 'style="display:none"'}>al<input type="date" id="gal" value="${h(f.al)}"></label>
+   <label style="flex-direction:row;align-items:center;gap:4px" ${f.v === 'scad' ? 'hidden' : ''} title="Le procedure chiuse e quelle tolte dal monitoraggio (es. liquidazione aperta) di solito non si sollecitano"><input type="checkbox" id="gt" ${f.t ? 'checked' : ''}>anche chiuse ed escluse</label>
+   <button class="b2" onclick="scaricaCSV('pagamenti_' + oggi() + '.csv', S.rows_pag || [])">Esporta CSV</button>${btnStampa('pag')}</div>
+   <p class="nota">Dai preventivi firmati: rate concordate (quelle senza data scadono alla firma); senza rate, 20% alla firma e 30% al deposito (tappa «Deposito» fatta, fase depositata o data della sentenza); il saldo non ha scadenza. Sono contati tutti i bonifici della procedura (e del nucleo), compresi i contributi Finpiemonte, imputati alle rate in ordine; tolleranza 1 €. Gli incassi arrivano fino all'ultimo estratto conto caricato. Clic su una riga per le rate.</p><div id="lista"></div>`;
+  $('#gv').addEventListener('change', () => { S.fpag.v = $('#gv').value; tabPagamenti(); });
+  $('#gt').addEventListener('change', () => { S.fpag.t = $('#gt').checked; tabPagamenti(); });
+  ['gq', 'gs', 'gdal', 'gal'].forEach(id => $('#' + id).addEventListener(id === 'gq' ? 'input' : 'change', disegnaPag));
+  disegnaPag();
+}
+S.ridisegna_pag = () => disegnaPag();
+function disegnaPag() {
+  const f = Object.assign(S.fpag, {q: $('#gq').value.trim().toLowerCase(), s: $('#gs').value, dal: $('#gdal').value, al: $('#gal').value});
+  const cerca = r => !f.q || [r.protocolli, r.debitori, r.gestori].join(' ').toLowerCase().includes(f.q);
+  const num = v => v == null ? -1 : Number(v);
+  if (f.v === 'scad') {
+    const righe = S.pgscad.filter(r => cerca(r) && (!f.dal || r.scadenza >= f.dal) && (!f.al || r.scadenza <= f.al));
+    $('#lista').innerHTML = `<div class="conta">${righe.length} rate · da incassare: € ${euro(somma(righe, r => r.importo))}</div>` + tabella('pag', [
+      {t: 'Scadenza', v: r => r.scadenza, f: r => data(r.scadenza)}, {t: 'Importo €', n: 1, v: r => num(r.importo), f: r => euro(r.importo)},
+      {t: 'Rata', v: r => r.voce}, {t: 'Protocolli', v: r => r.protocolli}, {t: 'Debitori', v: r => r.debitori, w: 1}, {t: 'Gestore', v: r => r.gestori, w: 1},
+      {t: 'Stato', v: r => r.stato, f: r => pagTag(r.stato)}], righe, 'apriPag',
+      `<td>Totale</td><td class="n">${euro(somma(righe, r => r.importo))}</td><td colspan="5"></td>`);
+    return;
+  }
+  const righe = S.pgp.filter(r => cerca(r) && (!f.s || r.situazione === f.s) && (f.t || (r.fase !== 'chiusa' && !r.escluso_monitoraggio)));
+  $('#lista').innerHTML = `<div class="conta">${righe.length} procedure · dovuto a oggi € ${euro(somma(righe, r => r.dovuto_a_oggi))} · versato € ${euro(somma(righe, r => r.versato))} · <b>scoperto € ${euro(somma(righe, r => r.scoperto))}</b></div>` + tabella('pag', [
+    {t: 'Protocolli', v: r => r.protocolli}, {t: 'Debitori', v: r => r.debitori, w: 1}, {t: 'Gestore', v: r => r.gestori, w: 1},
+    {t: 'Situazione', v: r => SIT_PAG.indexOf(r.situazione), f: r => pagTag(r.situazione) + (r.escluso_monitoraggio ? ` <span class="nota" title="${h(r.motivo_esclusione || '')}">escl. monitoraggio</span>` : '') + (r.fase === 'chiusa' ? ' <span class="nota">chiusa</span>' : '')},
+    {t: 'Dovuto\na oggi €', n: 1, v: r => num(r.dovuto_a_oggi), f: r => euro(r.dovuto_a_oggi)},
+    {t: 'Versato €', n: 1, tip: 'Tutti i bonifici della procedura, compresi i contributi Finpiemonte', v: r => num(r.versato), f: r => euro(r.versato) + (Number(r.finpiemonte) ? ` <span class="nota" title="di cui contributi Finpiemonte">(FP ${euro(r.finpiemonte)})</span>` : '')},
+    {t: 'Scoperto €', n: 1, v: r => num(r.scoperto), f: r => Number(r.scoperto) > 1 ? `<b>${euro(r.scoperto)}</b>` : ''},
+    {t: 'Rate\nscadute', n: 1, v: r => r.n_scadute || 0, f: r => r.n_scadute ? `${r.n_scadute} <span class="nota">dal ${data(r.prima_scaduta)}</span>` : ''},
+    {t: 'Giorni di\nritardo', n: 1, v: r => r.giorni_ritardo || 0, f: r => r.giorni_ritardo || ''},
+    {t: 'Ultimo\nversamento', v: r => r.ultimo_versamento || '', f: r => data(r.ultimo_versamento)},
+    {t: 'Prossima\nscadenza', v: r => r.prossima_scadenza || '9999', f: r => r.prossima_scadenza ? `${data(r.prossima_scadenza)} <span class="nota">€ ${euro(r.prossimo_importo)}</span>` : ''},
+    {t: 'Al\ndeposito €', n: 1, tip: 'Secondo acconto da versare al deposito (non ancora scaduto)', v: r => num(r.al_deposito), f: r => euroSe(r.al_deposito)},
+    {t: 'Saldo €', n: 1, tip: 'Saldo del compenso, senza scadenza', v: r => num(r.saldo_non_scadenzato), f: r => euroSe(r.saldo_non_scadenzato)},
+    {t: 'Fase', v: r => r.fase}, {t: 'Stato\nLexdebita', v: r => r.lexdebita_stato}],
+    righe, 'apriPag', `<td colspan="4">Totale</td><td class="n">${euro(somma(righe, r => r.dovuto_a_oggi))}</td><td class="n">${euro(somma(righe, r => r.versato))}</td><td class="n">${euro(somma(righe, r => r.scoperto))}</td><td colspan="7"></td>`);
+}
+function apriPag(r) { apriPagamenti(r.procedura_id); }
+async function htmlPagamenti(pid) {
+  const rr = await api.list('v_pagamenti_previsti', {f: [['eq', 'procedura_id', pid]], order: [['ordine']]});
+  if (!rr.length) return '';
+  return `<table><thead><tr><th>Pagamento previsto</th><th class="n">Importo €</th><th>Scadenza</th><th class="n">Versato €</th><th class="n">Residuo €</th><th>Pagato il</th><th>Stato</th></tr></thead><tbody>${rr.map(x => `<tr><td>${h(x.voce)}</td><td class="n">${euro(x.importo)}</td><td>${data(x.scadenza)}</td><td class="n">${euroSe(x.versato)}</td><td class="n">${euroSe(x.residuo)}</td><td>${data(x.pagata_il)}</td><td>${pagTag(x.stato)}${x.giorni_ritardo ? ` <span class="nota">${x.giorni_ritardo} gg</span>` : ''}</td></tr>`).join('')}</tbody>
+   <tfoot><tr><td>Totale</td><td class="n">${euro(somma(rr, x => x.importo))}</td><td></td><td class="n">${euro(somma(rr, x => x.versato))}</td><td class="n">${euro(somma(rr, x => x.residuo))}</td><td colspan="2"></td></tr></tfoot></table>
+   <p class="nota">Dal preventivo firmato vigente; i versamenti sono imputati alle rate in ordine. Per correggere un preventivo o un incasso chiedere a Claudia.</p>`;
+}
+async function apriPagamenti(pid) {
+  const r = (S.pgp || []).find(x => x.procedura_id === pid) || {};
+  apri(`Pagamenti – ${r.protocolli || ''} ${r.debitori || ''}`, 'Caricamento…', true);
+  let corpo; try { corpo = await htmlPagamenti(pid); } catch (e) { $('#dcorpo').innerHTML = `<div class="avviso">${h(e.message)}</div>`; return; }
+  const riep = r.procedura_id ? `<p>${pagTag(r.situazione)} · dovuto a oggi € ${euro(r.dovuto_a_oggi)} · versato € ${euro(r.versato)} · scoperto € <b>${euro(r.scoperto)}</b>${r.ultimo_versamento ? ' · ultimo versamento ' + data(r.ultimo_versamento) : ''}</p>` : '';
+  $('#dcorpo').innerHTML = `<div class="box">${riep}${corpo || '<p class="nota">Nessun preventivo firmato.</p>'}</div><div class="azioni"><button class="b2" onclick="apriProcedura(${pid})">Apri la procedura</button><button class="b2" onclick="apriPreventivo(${pid})">Apri il preventivo</button></div>`;
+}
+// riquadro «Pagamenti previsti» nella scheda della procedura
+async function caricaPagProc(pid) {
+  let corpo; try { corpo = await htmlPagamenti(pid); } catch (e) { return; }
+  if (!$('#pagProc') || !corpo) return;
+  $('#pagProc').innerHTML = `<div class="box"><h3>Pagamenti previsti dal preventivo</h3>${corpo}</div>`;
+}
+
 // ---------- FINPIEMONTE (v39, db v11fp): contributi regionali L.R. 8/2017, Misure A e B (viste v_finpiemonte, v_finpiemonte_scadenze, v_finpiemonte_quadratura; tabelle finpiemonte_pratiche e finpiemonte_eventi) ----------
 const STATI_FP = ['valutazione', 'non_richiesta', 'da_presentare', 'presentata', 'sospesa', 'concessa', 'depositata', 'saldo_richiesto', 'erogazione_richiesta', 'completata', 'non_ammessa', 'rinunciata', 'chiusa'];
 const STATI_FP_TIT = {valutazione: 'in valutazione', non_richiesta: 'non richiesta', da_presentare: 'da presentare', presentata: 'presentata', sospesa: 'sospesa (integrazioni)', concessa: 'concessa', depositata: 'depositata', saldo_richiesto: 'saldo richiesto', erogazione_richiesta: 'erogazione richiesta', completata: 'completata', non_ammessa: 'non ammessa', rinunciata: 'rinunciata', chiusa: 'chiusa'};
@@ -1007,6 +1082,7 @@ async function apriProcedura(id) {
   ${p.lexdebita_stato ? `<span class="nota">Lexdebita: ${h(p.lexdebita_tipo || '')} · ${h(p.lexdebita_stato)} · DGSTAT ${h(p.lexdebita_dgstat || '')} (letto il ${data(p.lexdebita_letto_il)})</span>` : ''}</div></div>
 
   <div id="prevProc"></div>
+  <div id="pagProc"></div>
   <div id="fpProc"></div>
   <div id="esitoTrib"></div>
   ${S.avz && S.avz[id] ? `<div class="box"><h3>Avanzamento dell'istruttoria</h3>${avzCella(id)} <button class="b2" style="margin-left:10px" onclick="apriTappe(${id})">Gestisci le tappe</button></div>` : ''}
@@ -1042,7 +1118,7 @@ async function apriProcedura(id) {
   <div class="box"><h3>Incassi (${inc.length})</h3>${inc.length ? `<table><thead><tr><th>Data</th><th class="n">Importo</th><th>Destinazione</th><th>Descrizione</th></tr></thead><tbody>
   ${inc.map(i => `<tr class="cl" onclick="apriIncasso(${i.id})"><td>${data(i.data_contabile)}</td><td class="n">${euro(i.importo)}</td><td>${h(i.destinazione)}${i.gestore_forzato_id ? ' → ' + h(nomeG(i.gestore_forzato_id)) : ''}</td><td class="wrap">${h(i.descrizione)}</td></tr>`).join('')}</tbody>
   <tfoot><tr><td>Totale</td><td class="n">${euro(somma(inc, i => i.importo))}</td><td colspan="2"></td></tr></tfoot></table>` : '<span class="nota">Nessuno</span>'}</div>`);
-  caricaEsitoTrib(id); caricaPrevProc(id); caricaFpProc(id);
+  caricaEsitoTrib(id); caricaPrevProc(id); caricaPagProc(id); caricaFpProc(id);
 }
 async function salvaProc() {
   const {p} = S.p, n = leggi('#fproc'), patch = diff(p, n);
