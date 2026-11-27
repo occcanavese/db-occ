@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Database OCC</title>
-<!-- db-occ – app di consultazione e modifica (Claudia). v42, 24/11/2026: scheda «Pagamenti» per l'admin (db v11bjw: viste v_pagamenti_procedure, v_pagamenti_previsti, v_scadenziario_incassi): per ogni procedura con preventivo firmato dovuto a oggi, versato, scoperto e prossima scadenza; vista «Scadenziario» dei prossimi incassi concordati; dettaglio delle rate con lo stato; riquadro «Pagamenti previsti» nella scheda procedura; v41, 21/11/2026: provvedimenti del Tribunale (sentenze e decreti originali, db v11bih/v11bii, tabella sentenze_procedure, Storage privato «sentenze») apribili con l'icona 📄 nella scheda «Omologhe» (colonna Provvedimento, filtro «solo con provvedimento») e nel riquadro «Esito in Tribunale» della procedura; link temporanei (10 minuti) solo per chi è abilitato; v40, 20/11/2026: incassi ↔ bonifici ai Gestori (db v11g): nella scheda «Incassi» quota dei Gestori, già pagato, data del bonifico, residuo e stato del pagamento (vista v_incassi_pagamenti), filtro «Pagamento Gestori»; nel dettaglio del movimento le quote per Gestore con pagato, residuo e bonifici (v_incassi_quote); «Da pagare» calcolata dal residuo (comprese le integrazioni, es. SCHIMICCI); «Crea bonifico» aggiunge sempre righe nuove (pagamenti in più volte); nel bonifico la colonna saldo/acconto; v39, 20/11/2026: scheda «Finpiemonte» per l'admin (contributi regionali Misure A e B, db v11fp: elenco con avvisi, scadenze, controllo con la banca, dettaglio con la cronologia) e riquadro «Contributo Finpiemonte» nella scheda procedura; v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
+<!-- db-occ – app di consultazione e modifica (Claudia). v43, 27/11/2026 (richieste di BERTINO Albino e di Giampaolo): colori degli stati come da proposta del Gruppo (da fare bianco, in corso azzurro, in attesa di riscontro e di documenti arancione, bloccato rosso, fatto e non necessario verde) nelle caselle e nei menu di stato della finestra «Tappe e sottotappe»; «Griglia delle sottotappe» → griglia di tappe e sottotappe con il menu «Colonne» (solo le tappe, tutte le tappe con tutte le sottotappe, una tappa con le sue sottotappe per tutte le procedure, una sola sottotappa); conteggi per stato cliccabili sopra la griglia e l'elenco (clic → elenco delle procedure in quello stato); v42, 24/11/2026: scheda «Pagamenti» per l'admin (db v11bjw: viste v_pagamenti_procedure, v_pagamenti_previsti, v_scadenziario_incassi): per ogni procedura con preventivo firmato dovuto a oggi, versato, scoperto e prossima scadenza; vista «Scadenziario» dei prossimi incassi concordati; dettaglio delle rate con lo stato; riquadro «Pagamenti previsti» nella scheda procedura; v41, 21/11/2026: provvedimenti del Tribunale (sentenze e decreti originali, db v11bih/v11bii, tabella sentenze_procedure, Storage privato «sentenze») apribili con l'icona 📄 nella scheda «Omologhe» (colonna Provvedimento, filtro «solo con provvedimento») e nel riquadro «Esito in Tribunale» della procedura; link temporanei (10 minuti) solo per chi è abilitato; v40, 20/11/2026: incassi ↔ bonifici ai Gestori (db v11g): nella scheda «Incassi» quota dei Gestori, già pagato, data del bonifico, residuo e stato del pagamento (vista v_incassi_pagamenti), filtro «Pagamento Gestori»; nel dettaglio del movimento le quote per Gestore con pagato, residuo e bonifici (v_incassi_quote); «Da pagare» calcolata dal residuo (comprese le integrazioni, es. SCHIMICCI); «Crea bonifico» aggiunge sempre righe nuove (pagamenti in più volte); nel bonifico la colonna saldo/acconto; v39, 20/11/2026: scheda «Finpiemonte» per l'admin (contributi regionali Misure A e B, db v11fp: elenco con avvisi, scadenze, controllo con la banca, dettaglio con la cronologia) e riquadro «Contributo Finpiemonte» nella scheda procedura; v38, 19/11/2026: scheda «Preventivi» (vista v_preventivi_riepilogo, db v11d: stato, importi, rate, dettaglio di ogni preventivo) e riquadro «Preventivo» nella scheda procedura; il campo Preventivo della procedura ora si aggiorna da solo dal preventivo vigente; v37, 18/11/2026: finestra «Tappe e sottotappe» più larga (fino a 1200 px) e sottotappe chiuse sotto ogni tappa, da aprire con ▸/▾ (o «Espandi tutte»); v36, 17/11/2026: la scheda «Condivise dei colleghi» si chiama «Condivise» (anche nel filtro della griglia); v35, 17/11/2026: per gli Ausiliari (D'ORSI) la nota di «Le mie procedure» dice «Le procedure del Gestore che affianca (…)»; v34, 17/11/2026: colonne Nome PEC e Utente PEC anche in «Le mie procedure» (modificabili dai Volenterosi sulle proprie condivise); v33: colonne Nome PEC e Utente PEC in «Condivise dei colleghi», modificabili dai Volenterosi (rpc aggiorna_pec_condivisa, db v10q); v32: esiti negativi e depositate in «Omologhe»; v31: scheda «Omologhe» (vista v_omologhe) e riquadro «Esito in Tribunale» nella scheda procedura. Apri il file nel browser. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f6f7f9;--pane:#fff;--ink:#1d2430;--mute:#667085;--line:#e3e6eb;--acc:#1f6f5c;--acc2:#e7f3ef;--warn:#b54708;--warnbg:#fff4e5;--err:#b42318;--errbg:#fdecea;--ok:#067647;--th:#1f4e79;--thtx:#ffffff}
@@ -79,13 +79,17 @@ tr.tappa .fr.vuota{cursor:default}
 .st{display:inline-block;min-width:28px;text-align:center;border-radius:5px;padding:1px 5px;cursor:pointer;font-weight:600;font-size:12px;border:1px solid var(--line);background:var(--pane);color:var(--mute)}
 .st.vuoto{opacity:.35}.st:hover{outline:2px solid var(--acc)}
 tr.sottotappa td{background:var(--bg);font-size:13px}
-.st.s-dafare{background:var(--bg);color:var(--ink)}
-.st.s-incorso{background:var(--acc2);color:var(--acc);border-color:var(--acc)}
-.st.s-delega,.st.s-attesa{background:var(--warnbg);color:var(--warn);border-color:var(--warn)}
-.st.s-fatto{background:var(--ok);color:#fff;border-color:var(--ok)}
-.st.s-nonnec{background:var(--line);color:var(--mute)}
-.st.s-doc{background:#fff3b0;color:#7a5d00;border-color:#c9a400}
-.st.s-sosp{background:var(--errbg);color:var(--err);border-color:var(--err)}
+/* v43: colori degli stati (proposta BERTINO): da fare bianco, in corso azzurro, in attesa arancione, bloccato rosso, fatto e non necessario verde */
+.st.s-dafare,select.s-dafare{background:#fff;color:#344054;border-color:#cfd4dc}
+.st.s-incorso,select.s-incorso{background:#d6e9ff;color:#1849a9;border-color:#2e90fa}
+.st.s-delega,.st.s-attesa,select.s-attesa,.st.s-doc,select.s-doc{background:#ffe2c2;color:#9a3d00;border-color:#f79009}
+.st.s-fatto,select.s-fatto{background:#12b76a;color:#fff;border-color:#067647}
+.st.s-nonnec,select.s-nonnec{background:#c7f0d8;color:#05603a;border-color:#32d583}
+.st.s-sosp,select.s-sosp{background:#f04438;color:#fff;border-color:#b42318}
+select.selst{font-weight:600}
+.st.tp{border-width:2px;font-size:13px;min-width:34px}
+th.thtappa{background:#0b2540 !important;border-left:2px solid #fff}
+.stati-conta{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px}.stati-conta span.st{cursor:pointer;padding:3px 8px}.stati-conta .att{outline:2px solid var(--acc)}
 .avz{display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:0 4px;border-radius:5px;vertical-align:middle}
 .avz:hover{outline:2px solid var(--acc)}
 textarea.nota-tappa{width:100%;min-height:32px;max-height:150px;overflow-y:auto;resize:vertical;line-height:1.35;font-size:13px}
@@ -423,6 +427,7 @@ function suggerimentiTappe() {   // tutte le sottotappe chiuse ma la tappa no: l
 }
 function cambiaStatoTappa(k) {
   const st = $('#tst' + k).value, d = $('#tdt' + k), r = S.tp.righe.find(y => y.k === k), tappa = r && !r.t.padre_id;
+  $('#tst' + k).className = 'selst ' + ATT_CLS[st];
   d.style.visibility = (st === 'fatto' || st === 'in attesa documenti') ? 'visible' : 'hidden';
   d.title = st === 'in attesa documenti' ? 'data della richiesta dei documenti al debitore' : 'data di completamento';
   if ((tappa || (r && r.t.ripetibile)) && d.style.visibility === 'visible' && !d.value) d.value = oggi();
@@ -435,7 +440,7 @@ function rigaTappa(t, n) {
   const ns = sub ? 0 : S.tp.sotto.filter(x => x.padre_id === t.id).length, ap = S.tp.aperte.has(sub ? t.padre_id : t.id);
   return `<tr class="${sub ? 'sottotappa' : 'tappa'}" ${sub ? `data-p="${t.padre_id}" style="${ap ? '' : 'display:none'}"` : ''}><td class="wrap" style="min-width:0;${sub ? 'padding-left:22px' : ''}">${sub ? '↳ ' + h(etichetta(t, n)) : `${ns ? `<span class="fr" id="tfr${t.id}" onclick="tpApri(${t.id})" title="Mostra / nascondi le sottotappe">${ap ? '▾' : '▸'}</span>` : '<span class="fr vuota"></span>'}<b>${h(t.nome)}</b>${ns ? ` <span class="sotto-n" onclick="tpApri(${t.id})">(${ns} sottotapp${ns === 1 ? 'a' : 'e'})</span>` : ''}<br><span class="nota">fatta quando: ${h(t.quando_fatta || '')}</span>`}${t.chi_di_norma && n === 1 ? `<br><span class="nota">di norma: ${h(t.chi_di_norma)}</span>` : ''}${r.aggiornato_il ? `<br><span class="nota">agg. ${data(r.aggiornato_il)} ${h(r.aggiornato_da || '')}</span>` : ''}${sub ? '' : `<div id="tsug${t.id}"></div>`}</td>
     <td class="n">${sub ? '' : Number(t.peso)}</td>
-    <td><select style="width:100%" id="tst${k}" onchange="cambiaStatoTappa('${k}')" ${dis} ${dis ? 'title="Le tappe le aggiorna il Gestore della pratica"' : ''}>${opt(STATI_ATT, st)}</select></td>
+    <td><select style="width:100%" id="tst${k}" class="selst ${ATT_CLS[st]}" onchange="cambiaStatoTappa('${k}')" ${dis} ${dis ? 'title="Le tappe le aggiorna il Gestore della pratica"' : ''}>${opt(STATI_ATT, st)}</select></td>
     <td><input type="date" id="tdt${k}" value="${h(dt || '')}" style="width:100%;visibility:${vis ? 'visible' : 'hidden'}" ${dis} title="${st === 'in attesa documenti' ? 'data della richiesta dei documenti al debitore' : 'data di completamento'}"></td>
     <td><input id="tch${k}" value="${h(r.responsabile || '')}" placeholder="chi" style="width:100%" ${dis} title="${h(chi || 'chi se ne occupa')}"></td>
     <td style="white-space:normal"><textarea id="tno${k}" class="nota-tappa" rows="1" oninput="allunga(this)" ${dis} placeholder="${st === 'bloccato' ? 'motivo del blocco' : ''}">${h(r.note || '')}</textarea></td></tr>`;
@@ -541,7 +546,7 @@ async function tabMie() {
     ausil = Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] || true; }
   S.mieVista ||= 'mie'; if (!colleghi && S.mieVista === 'colleghi') S.mieVista = 'mie';
   const bt = (k, t) => `<button class="${S.mieVista === k ? 'b' : 'b2'}" onclick="S.mieVista='${k}';tabMie()">${t}</button>`;
-  $('#main').innerHTML = ante + `<div class="azioni" style="margin:0 0 10px">${bt('mie', `Le mie procedure (${S.mieIds.size})`)}${colleghi ? bt('colleghi', `Condivise (${S.mie.length - S.mieIds.size})`) : ''}${bt('griglia', 'Griglia delle sottotappe')}</div>` + '<div id="mieCorpo"></div>';
+  $('#main').innerHTML = ante + `<div class="azioni" style="margin:0 0 10px">${bt('mie', `Le mie procedure (${S.mieIds.size})`)}${colleghi ? bt('colleghi', `Condivise (${S.mie.length - S.mieIds.size})`) : ''}${bt('griglia', 'Griglia delle tappe')}</div>` + '<div id="mieCorpo"></div>';
   if (S.mieVista === 'griglia') return tabAdempimenti();
   $('#mieCorpo').innerHTML = `<div class="filtri"><label>Cerca (debitore, protocollo, Gestore)<input id="pq" value="${h(S.pq || '')}" size="30"></label>
    <label class="chk" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pi" ${S.pi ? 'checked' : ''}> solo in istruttoria (assegnate al Gestore)</label>
@@ -1581,7 +1586,7 @@ async function dettaglioCasella(a, tip, campo) {
 // le colonne sono le SOTTOTAPPE del catalogo unico «attivita», raggruppate per tappa; i dati sono in «procedure_attivita»
 const APERTI = s => !CHIUSO(s);
 async function ricaricaAde() {
-  const pa = (await api.list('procedure_attivita')).filter(x => S.adeIds.has(x.attivita_id));
+  const pa = (await api.list('procedure_attivita')).filter(x => S.adeIds.has(x.attivita_id) || (S.adeTappe || {})[x.attivita_id]);
   S.pa = pa; S.paMap = {}; pa.forEach(x => { if ((x.numero || 1) === 1) S.paMap[x.procedura_id + '_' + x.attivita_id] = x; });
   if ((S.tab === 'adempimenti' || S.mieVista === 'griglia') && $('#lista')) disegnaAde();
 }
@@ -1613,13 +1618,13 @@ async function tabAdempimenti() {
   const f = S.fa;
   dove.innerHTML = `<div class="filtri">
     ${daMie && S.procAde.some(p => !p.mia) ? `<label>Procedure<select onchange="S.fa.amb=this.value;disegnaAde()">${opt([['mie', 'le mie'], ['colleghi', 'condivise'], ['tutte', 'tutte']], f.amb)}</select></label>` : ''}
-    <label>Vista<select onchange="S.fa.v=this.value;disegnaAde()">${opt([['griglia', 'Griglia procedure × sottotappe'], ['elenco', 'Elenco dei compiti']], f.v)}</select></label>
+    <label>Vista<select onchange="S.fa.v=this.value;disegnaAde()">${opt([['griglia', 'Griglia procedure × tappe e sottotappe'], ['elenco', 'Elenco dei compiti']], f.v)}</select></label>
     <label>Cerca<input value="${h(f.q)}" placeholder="debitore, protocollo, Gestore, note…" oninput="S.fa.q=this.value;disegnaAde()"></label>
     <label>Responsabile<select onchange="S.fa.r=this.value;disegnaAde()"><option value="">tutti</option>${S.me.nome ? `<option value="${h(S.me.nome)}" ${f.r === S.me.nome ? 'selected' : ''}>i miei (${h(S.me.nome)})</option>` : ''}${resp.filter(r => r !== S.me.nome).map(r => `<option ${f.r === r ? 'selected' : ''}>${h(r)}</option>`).join('')}</select></label>
     <label>Stato<select onchange="S.fa.s=this.value;disegnaAde()"><option value="">tutti</option><option value="__aperti" ${f.s === '__aperti' ? 'selected' : ''}>solo da completare</option>${STATI_ATT.map(x => `<option ${f.s === x ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
-    <label>Sottotappa<select onchange="S.fa.a=this.value;disegnaAde()"><option value="">tutte</option>${tappe.map(t => { const ss = S.ade.filter(x => x.padre_id === t.id); return ss.length ? `<optgroup label="${h(t.nome)}">${ss.map(a => `<option value="${a.id}" ${String(f.a) === String(a.id) ? 'selected' : ''}>${h(a.nome)}</option>`).join('')}</optgroup>` : ''; }).join('')}</select></label>
+    <label>Colonne<select onchange="S.fa.a=this.value;disegnaAde()"><option value="T" ${f.a === 'T' ? 'selected' : ''}>solo le tappe</option><option value="" ${!f.a ? 'selected' : ''}>tutte le tappe con tutte le sottotappe</option>${tappe.map(t => { const ss = S.ade.filter(x => x.padre_id === t.id); return `<optgroup label="${h(t.nome)}"><option value="t${t.id}" ${f.a === 't' + t.id ? 'selected' : ''}>${h(t.nome)}: tappa e tutte le sue sottotappe</option>${ss.map(a => `<option value="${a.id}" ${String(f.a) === String(a.id) ? 'selected' : ''}>↳ ${h(a.nome)}</option>`).join('')}</optgroup>`; }).join('')}</select></label>
     ${btnStampa('ade')}</div>
-    <div class="legenda">${STATI_ATT.map(x => `<span><span class="st ${ATT_CLS[x]}">${ATT_SIG[x]}</span> ${x}</span>`).join('')}<span><span class="st vuoto">+</span> non ancora registrato</span><span>· clic su una casella per aprirla · le <b>tappe</b> con la percentuale si aggiornano dalla finestra «Tappe e sottotappe»</span></div>
+    <div class="legenda">${STATI_ATT.map(x => `<span><span class="st ${ATT_CLS[x]}">${ATT_SIG[x]}</span> ${x}</span>`).join('')}<span><span class="st vuoto">+</span> non ancora registrato</span><span>· clic su una casella per aprirla · le colonne con il bordo scuro sono le <b>tappe</b> (clic → finestra «Tappe e sottotappe», le aggiorna il Gestore); le altre sono le sottotappe</span></div>
     <div id="lista"></div>`;
   disegnaAde();
 }
@@ -1628,35 +1633,55 @@ function adeOk(x) {           // filtri responsabile / stato / sottotappa su una
   const f = S.fa;
   if (f.r && x.responsabile !== f.r && !(x.con || '').includes(f.r)) return false;
   if (f.s === '__aperti' ? !APERTI(x.stato) : f.s && x.stato !== f.s) return false;
-  if (f.a && String(x.attivita_id) !== String(f.a)) return false;
+  if (!attOk(x.attivita_id)) return false;
   return true;
 }
+function attOk(aid) {         // v43: menu «Colonne»: '' tutto, 'T' solo tappe, 't<id>' una tappa con le sue sottotappe, '<id>' una sottotappa
+  const f = S.fa, tp = (S.adeTappe || {})[aid];
+  if (!f.a) return true;
+  if (f.a === 'T') return !!tp;
+  if (f.a[0] === 't') { const tid = f.a.slice(1); if (tp) return String(aid) === tid; const a = S.ade.find(x => x.id === aid); return !!a && String(a.padre_id) === tid; }
+  return String(aid) === String(f.a);
+}
+function colonneAde() {       // tappe (bordo scuro) seguite dalle loro sottotappe, secondo il menu «Colonne»
+  const out = [];
+  Object.values(S.adeTappe || {}).sort((x, y) => x.ordine - y.ordine).forEach(t => {
+    if (attOk(t.id)) out.push({...t, _tappa: true});
+    S.ade.filter(a => a.padre_id === t.id).forEach(a => { if (S.fa.a !== 'T' && attOk(a.id)) out.push(a); }); });
+  return out;
+}
+function statoClic(st) { S.fa.s = S.fa.s === st ? '' : st; if (S.fa.s) S.fa.v = 'elenco'; const sel = document.querySelectorAll('.filtri select'); sel.forEach(x => { if ([...x.options].some(o => o.value === '__aperti')) x.value = S.fa.s; if ([...x.options].some(o => o.value === 'elenco')) x.value = S.fa.v; }); disegnaAde(); }
 function nomeTappaDi(a) { return ((S.adeTappe || {})[a.padre_id] || {}).nome || ''; }
 function disegnaAde() {
   const f = S.fa, q = f.q.trim().toLowerCase();
   const amb = $('#mieCorpo') && S.procAde.some(p => !p.mia) ? f.amb : 'tutte';
   const pOk = p => (amb === 'tutte' || (amb === 'mie') === !!p.mia) && (!q || [p.protocollo, p.debitore, p.gestore, p.pec, p.pec_username].some(v => (v || '').toLowerCase().includes(q)));
-  const nomeA = id => { const a = S.ade.find(x => x.id === id) || {}; return a.nome ? nomeTappaDi(a) + ' › ' + a.nome : ''; };
+  const nomeA = id => { const t = (S.adeTappe || {})[id]; if (t) return t.nome + ' (tappa)'; const a = S.ade.find(x => x.id === id) || {}; return a.nome ? nomeTappaDi(a) + ' › ' + a.nome : ''; };
+  const visP = new Set(S.procAde.filter(pOk).map(p => p.procedura_id)), conta = {};
+  S.pa.forEach(x => { if (visP.has(x.procedura_id) && attOk(x.attivita_id) && (!f.r || x.responsabile === f.r || (x.con || '').includes(f.r))) conta[x.stato] = (conta[x.stato] || 0) + 1; });
+  if (!f.r) Object.values(S.adeTappe || {}).forEach(t => { if (attOk(t.id)) visP.forEach(pid => { if (!S.paMap[pid + '_' + t.id]) conta['da fare'] = (conta['da fare'] || 0) + 1; }); });   // tappe non ancora registrate = da fare
+  const chips = `<div class="stati-conta" title="Caselle registrate per stato, con i filtri attuali: clic su uno stato → elenco delle procedure in quello stato (nuovo clic per togliere il filtro)">${STATI_ATT.map(st => `<span class="st ${ATT_CLS[st]} ${f.s === st ? 'att' : ''}" onclick="statoClic('${st}')">${ATT_SIG[st]} ${st}: <b>${conta[st] || 0}</b></span>`).join('')}</div>`;
   if (f.v === 'griglia') {
-    const ades = f.a ? S.ade.filter(a => String(a.id) === String(f.a)) : S.ade;
+    const ades = colonneAde();
     const filtroRighe = f.r || f.s;
     let righe = S.procAde.filter(pOk);
     if (filtroRighe) righe = righe.filter(p => S.pa.some(x => x.procedura_id === p.procedura_id && adeOk(x)));
-    const cella = (p, a) => { const x = S.paMap[p.procedura_id + '_' + a.id];
-      const tit = x ? `${nomeTappaDi(a)} › ${a.nome}: ${x.stato}${x.responsabile ? ' – ' + x.responsabile : ''}${x.note ? ' – ' + x.note : ''}` : `${nomeTappaDi(a)} › ${a.nome}: non registrato`;
+    const cella = (p, a) => { const x = S.paMap[p.procedura_id + '_' + a.id], nm = a._tappa ? a.nome + ' (tappa)' : nomeTappaDi(a) + ' › ' + a.nome;
+      const tit = x ? `${nm}: ${x.stato}${x.responsabile ? ' – ' + x.responsabile : ''}${x.note ? ' – ' + x.note : ''}` : `${nm}: ${a._tappa ? 'da fare' : 'non registrato'}`;
+      if (a._tappa) return `<span class="st tp ${ATT_CLS[x ? x.stato : 'da fare']}" title="${h(tit + ' – clic per la finestra delle tappe')}" onclick="event.stopPropagation();apriTappe(${p.procedura_id})">${ATT_SIG[x ? x.stato : 'da fare']}</span>`;
       return `<span class="st ${x ? ATT_CLS[x.stato] : 'vuoto'}" title="${h(tit)}" onclick="event.stopPropagation();apriAde(${p.procedura_id},${a.id})">${x ? ATT_SIG[x.stato] : '+'}</span>`; };
-    $('#lista').innerHTML = `<div class="conta">${righe.length} procedure</div>` + tabella('ade', [
+    $('#lista').innerHTML = chips + `<div class="conta">${righe.length} procedure</div>` + tabella('ade', [
       {t: 'Protocollo', v: p => p.protocollo}, {t: 'Debitore', v: p => p.debitore}, {t: 'Gestore', v: p => p.gestore},
       {t: 'Indirizzo PEC', v: p => p.pec}, {t: 'Utente PEC', v: p => p.pec_username},
-      ...ades.map(a => ({t: a.codice, v: p => { const x = S.paMap[p.procedura_id + '_' + a.id]; return x ? STATI_ATT.indexOf(x.stato) : -1; }, f: p => cella(p, a)}))], righe);
-    document.querySelectorAll('#lista thead th').forEach((th, i) => { if (i >= 5) { const a = ades[i - 5]; th.title = nomeTappaDi(a) + ' › ' + a.nome + (a.chi_di_norma ? ' (di norma: ' + a.chi_di_norma + ')' : ''); } });
+      ...ades.map(a => ({t: a._tappa ? (a.nome.length > 14 ? a.nome.slice(0, 13) + '…' : a.nome).toUpperCase() : a.codice, v: p => { const x = S.paMap[p.procedura_id + '_' + a.id]; return x ? STATI_ATT.indexOf(x.stato) : -1; }, f: p => cella(p, a)}))], righe);
+    document.querySelectorAll('#lista thead th').forEach((th, i) => { if (i >= 5) { const a = ades[i - 5]; if (!a) return; if (a._tappa) { th.classList.add('thtappa'); th.title = 'Tappa: ' + a.nome + ' (peso ' + Number(a.peso) + ')'; } else th.title = nomeTappaDi(a) + ' › ' + a.nome + (a.chi_di_norma ? ' (di norma: ' + a.chi_di_norma + ')' : ''); } });
   } else {
     const pm = {}; S.procAde.forEach(p => pm[p.procedura_id] = p);
-    const pos = id => S.ade.findIndex(a => a.id === id);
+    const ordC = colonneAde().map(a => a.id), pos = id => { const i = ordC.indexOf(id); return i < 0 ? 999 : i; };
     const righe = S.pa.filter(x => pm[x.procedura_id] && pOk(pm[x.procedura_id]) && adeOk(x) || (q && pm[x.procedura_id] && adeOk(x) && (x.note || '').toLowerCase().includes(q)))
       .map(x => ({...x, _p: pm[x.procedura_id], _ord: pos(x.attivita_id)}))
       .sort((a, b) => a._p.protocollo.localeCompare(b._p.protocollo, 'it', {numeric: true}) || a._ord - b._ord || (a.numero || 1) - (b.numero || 1));
-    $('#lista').innerHTML = `<div class="conta">${righe.length} compiti registrati</div>` + tabella('ade', [
+    $('#lista').innerHTML = chips + `<div class="conta">${righe.length} compiti registrati${f.s ? ` in stato «${h(f.s === '__aperti' ? 'da completare' : f.s)}»` : ''}</div>` + tabella('ade', [
       {t: 'Protocollo', v: x => x._p.protocollo}, {t: 'Debitore', v: x => x._p.debitore}, {t: 'Indirizzo PEC', v: x => x._p.pec}, {t: 'Utente PEC', v: x => x._p.pec_username}, {t: 'Tappa › sottotappa', v: x => nomeA(x.attivita_id) + ((x.numero || 1) > 1 ? ` (${x.numero}° incontro)` : '')},
       {t: 'Responsabile', v: x => x.responsabile}, {t: 'Con', v: x => x.con},
       {t: 'Stato', v: x => STATI_ATT.indexOf(x.stato), f: x => `<span class="st ${ATT_CLS[x.stato]}">${ATT_SIG[x.stato]}</span> ${h(x.stato)}${x.avanzamento != null ? ' ' + x.avanzamento + '%' : ''}`},
@@ -1665,7 +1690,7 @@ function disegnaAde() {
       righe, 'apriAdeRiga');
   }
 }
-function apriAdeRiga(x) { apriAde(x.procedura_id, x.attivita_id); }
+function apriAdeRiga(x) { if ((S.adeTappe || {})[x.attivita_id]) return apriTappe(x.procedura_id); apriAde(x.procedura_id, x.attivita_id); }
 function apriAde(pid, aid) {
   const p = S.procAde.find(r => r.procedura_id === pid) || {}, a = S.ade.find(r => r.id === aid) || {};
   const x = S.paMap[pid + '_' + aid] || {stato: 'da fare'};
